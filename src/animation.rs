@@ -1,6 +1,9 @@
 use iced_core::Color;
 
-pub trait AnimatableValue<T = Self> where Self: Clone + std::fmt::Debug + PartialEq + Sized {
+pub trait AnimatableValue<T = Self>
+where
+    Self: Clone + std::fmt::Debug + PartialEq + Sized,
+{
     fn distance(&self, other: &Self) -> f32;
     fn diff(&self, other: &Self) -> Self;
     fn sum(&self, other: &Self) -> Self;
@@ -23,7 +26,12 @@ impl AnimatableValue for (f32, f32) {
         (self.0 * amount, self.1 * amount)
     }
     fn magnitude(&self) -> f32 {
-        f32::sqrt(vec![self.0, self.1].iter().map(|v| f32::powf(*v, 2.0)).sum())
+        f32::sqrt(
+            vec![self.0, self.1]
+                .iter()
+                .map(|v| f32::powf(*v, 2.0))
+                .sum(),
+        )
     }
     fn normalized(&self) -> Self {
         let magnitude = self.magnitude();
@@ -57,7 +65,7 @@ pub struct Animation<Time, Value>
 where
     Value: AnimatableValue,
 {
-    pub position: Value,
+    pub origin: Value,
     pub duration_ms: f32,
     pub timing: Timing,
     pub animation_state: Option<AnimationState<Time, Value>>,
@@ -65,10 +73,8 @@ where
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct AnimationState<Time, Value> {
-    pub origin: Value,
     pub destination: Value,
     pub started_time: Time,
-    pub last_tick_time: Time,
     pub speed_at_interrupt: Option<f32>,
 }
 
@@ -87,9 +93,9 @@ where
     Time: AnimationTime + std::fmt::Debug,
     Value: AnimatableValue,
 {
-    pub fn new(position: Value, duration: f32, timing: Timing) -> Self {
+    pub fn new(origin: Value, duration: f32, timing: Timing) -> Self {
         Animation {
-            position,
+            origin,
             duration_ms: duration,
             timing,
             animation_state: None,
@@ -97,76 +103,76 @@ where
     }
 
     pub fn transition(&mut self, destination: Value, time: Time) {
-        let timed_progress = self.timed_progress();
-        if let Some(animation) = &mut self.animation_state {
-            // Snapshot current state as the new animation origin
-            if animation.speed_at_interrupt.is_none() {
-                animation.speed_at_interrupt = Some(
-                    animation.destination.distance(&animation.origin)
-                        / self.duration_ms,
-                );
+        let timed_progress = self.timed_progress(time);
+        let linear_progress = self.linear_progress(time);
+        match &mut self.animation_state {
+            Some(animation) if linear_progress != animation.destination => {
+                // Snapshot current state as the new animation origin
+                if animation.speed_at_interrupt.is_none() {
+                    animation.speed_at_interrupt =
+                        Some(animation.destination.distance(&self.origin) / self.duration_ms);
+                }
+                self.origin = timed_progress;
+                animation.destination = destination;
+                animation.started_time = time;
             }
-            animation.origin = timed_progress;
-            self.position = animation.origin.clone();
-            animation.destination = destination;
-        } else {
-            self.animation_state = Some(AnimationState {
-                started_time: time,
-                last_tick_time: time,
-                origin: self.position.clone(),
-                destination,
-                speed_at_interrupt: None,
-            })
+
+            Some(_) | None => {
+                self.origin = linear_progress;
+                self.animation_state = Some(AnimationState {
+                    started_time: time,
+                    destination,
+                    speed_at_interrupt: None,
+                })
+            }
         }
     }
 
-    pub fn tick(&mut self, time: Time) -> bool {
-        if let Some(animation) = &mut self.animation_state {
-            let elapsed = time.elapsed_since(animation.last_tick_time);
+    pub fn linear_progress(&self, time: Time) -> Value {
+        if let Some(animation) = &self.animation_state {
+            let elapsed = time.elapsed_since(animation.started_time);
             let position_delta: Value;
             if let Some(speed) = animation.speed_at_interrupt {
-                let direction = animation.destination.diff(&self.position).normalized();
+                let direction = animation.destination.diff(&self.origin).normalized();
                 position_delta = direction.scale(elapsed * speed);
             } else {
                 let duration = self.duration_ms;
                 let delta = elapsed / duration;
-                let direction = animation.destination.diff(&animation.origin);
+                let direction = animation.destination.diff(&self.origin);
                 position_delta = direction.scale(delta);
             }
-            let mut finished = false;
-            if self.duration_ms == 0.0 {
-                finished = true;
+            if self.duration_ms == 0.0
+                || position_delta.magnitude() >= self.origin.distance(&animation.destination)
+            {
+                return animation.destination.clone();
             } else {
-                if position_delta.magnitude() >= self.position.distance(&animation.destination) {
-                    finished = true
-                }
-                self.position = self.position.sum(&position_delta);
+                return self.origin.sum(&position_delta);
             }
-            animation.last_tick_time = time;
-            if finished {
-                self.position = animation.destination.clone();
-                self.animation_state = None;
-            }
-            return true;
         };
-        false
+        self.origin.clone()
     }
 
-    pub fn timed_progress(&self) -> Value {
+    pub fn timed_progress(&self, time: Time) -> Value {
         match &self.animation_state {
-            Some(animation) if animation.destination != animation.origin => {
-                let progress_in_animation = self.position.distance(&animation.origin);
-                let range_of_animation = animation.destination.distance(&animation.origin);
+            Some(animation) if animation.destination != self.origin => {
+                let position = self.linear_progress(time);
+                let progress_in_animation = position.distance(&self.origin);
+                let range_of_animation = animation.destination.distance(&self.origin);
                 let completion = progress_in_animation / range_of_animation;
-                let animation_range = animation.destination.diff(&animation.origin);
-                animation.origin.sum(&animation_range.scale(self.timing.timing(completion)))
+                let animation_range = animation.destination.diff(&self.origin);
+                self.origin
+                    .sum(&animation_range.scale(self.timing.timing(completion)))
             }
-            _ => return self.position.clone(),
+            _ => return self.origin.clone(),
         }
     }
 
-    pub fn animating(&self) -> bool {
-        self.animation_state.is_some()
+    pub fn in_progress(&self, time: Time) -> bool {
+        let linear_progress = self.linear_progress(time);
+        match &self.animation_state {
+            Some(animation) if linear_progress != animation.destination => true,
+            _ => false,
+        }
     }
 }
 
@@ -220,9 +226,9 @@ impl Interpolable for Color {
                 self.g.interpolated(other.g, ratio),
                 self.b.interpolated(other.b, ratio),
                 self.a.interpolated(other.a, ratio),
-            )
+            );
         } else {
-            return self
+            return self;
         }
     }
 }
@@ -245,7 +251,6 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod animatedvalue_tests {
     use super::*;
@@ -254,13 +259,11 @@ mod animatedvalue_tests {
     fn test_instant_animation() {
         let mut anim = Animation::<f32, f32>::new(0.0, 1.0, Timing::Linear);
         let clock = 0.0;
+        assert_eq!(anim.linear_progress(clock), 0.0);
         // If animation duration is 0.0 the transition should happen instantly
         // & require a redraw without any time passing
-        assert_eq!(anim.position, 0.0);
         anim.transition(10.0, clock);
-        assert_eq!(anim.position, 0.0);
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 10.0);
+        assert_eq!(anim.linear_progress(clock), 0.0);
     }
 
     #[test]
@@ -271,34 +274,25 @@ mod animatedvalue_tests {
         // destination at 0.5
         anim.transition(10.0, clock);
         clock += 0.5;
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 5.0);
+        assert_eq!(anim.linear_progress(clock), 5.0);
         clock += 0.5;
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 10.0);
+        assert_eq!(anim.linear_progress(clock), 10.0);
 
         // Progression backward
-        anim.duration_ms = 0.5;
         anim.transition(0.0, clock);
-        clock += 0.5;
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 0.0);
+        clock += 1.0;
+        assert_eq!(anim.linear_progress(clock), 0.0);
 
         // Progression forward in thirds
-        anim.duration_ms = 1.0;
         anim.transition(10.0, clock);
         clock += 0.2;
-        assert!(anim.tick(clock));
-        assert!(approximately_equal(anim.position, 2.0));
+        assert!(approximately_equal(anim.linear_progress(clock), 2.0));
         clock += 0.2;
-        assert!(anim.tick(clock));
-        assert!(approximately_equal(anim.position, 4.0));
+        assert!(approximately_equal(anim.linear_progress(clock), 4.0));
         clock += 0.4;
-        assert!(anim.tick(clock));
-        assert!(approximately_equal(anim.position, 8.0));
+        assert!(approximately_equal(anim.linear_progress(clock), 8.0));
         clock += 0.2;
-        assert!(anim.tick(clock));
-        assert!(approximately_equal(anim.position, 10.0));
+        assert!(approximately_equal(anim.linear_progress(clock), 10.0));
     }
 
     #[test]
@@ -309,33 +303,24 @@ mod animatedvalue_tests {
         // animation was progressing at.
         anim.transition(10.0, clock);
         clock += 0.5;
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 5.0);
+        assert_eq!(anim.linear_progress(clock), 5.0);
         // If we interrupt exactly halfway through distance & duration we
         // should arrive back at the start with another half of the duration
         anim.transition(0.0, clock);
         clock += 0.5;
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 0.0);
-        assert!(!anim.animating());
+        assert_eq!(anim.linear_progress(clock), 0.0);
 
         // Begin an animation
         anim.transition(10.0, clock);
         clock += 0.2;
-        assert!(anim.tick(clock));
-        assert!(anim.animating());
-        assert!(approximately_equal(anim.position, 2.0));
+        assert!(approximately_equal(anim.linear_progress(clock), 2.0));
         // Interrupt one fifth of the way through
         // The animation is playing at 10 units per time unit
         // The target is only 1.0 away
         // We should arrive at the target after 0.1 time units
         anim.transition(1.0, clock);
-        clock += 0.100001;
-        dbg!(anim.position);
-        assert!(anim.tick(clock));
-        dbg!(anim.position);
-        assert!(!anim.animating());
-        assert!(approximately_equal(anim.position, 1.0));
+        clock += 0.1;
+        assert!(approximately_equal(anim.linear_progress(clock), 1.0));
     }
 
     #[test]
@@ -345,19 +330,16 @@ mod animatedvalue_tests {
 
         // Interrupt halfway through with asymmetrical timing
         anim.transition(0.0, clock);
-        assert!(anim.animating());
-        assert_eq!(anim.position, 1.0);
+        assert_eq!(anim.linear_progress(clock), 1.0);
         clock += 1.0;
-        assert!(anim.tick(clock));
-        let progress_at_interrupt = anim.timed_progress();
+        let progress_at_interrupt = anim.timed_progress(clock);
         assert_eq!(progress_at_interrupt, 1.0 - Timing::EaseIn.timing(0.1));
 
         // Interrupted animation should begin from wherever the timed function
         // was interrupted, which is different from the linear progress.
         anim.transition(1.0, clock);
         assert_eq!(anim.animation_state.unwrap().destination, 1.0);
-        assert_eq!(anim.timed_progress(), progress_at_interrupt);
-        assert!(anim.animating());
+        assert_eq!(anim.timed_progress(clock), progress_at_interrupt);
         assert!(anim.animation_state.unwrap().speed_at_interrupt.is_some());
         // Since we've interrupted at some in-between, non-linear point in
         // the animation, the time it takes to finish won't be as clean.
@@ -365,9 +347,7 @@ mod animatedvalue_tests {
         // EaseIn timing curve. The animation we interrupted was easing in
         // & therefore closer to where it started.
         clock += 3.0;
-        assert!(anim.tick(clock));
-        assert_eq!(anim.position, 1.0);
-        assert!(!anim.animating());
+        assert_eq!(anim.linear_progress(clock), 1.0);
     }
 
     #[test]
@@ -376,19 +356,16 @@ mod animatedvalue_tests {
         let mut clock = 0.0;
         anim.transition(1.0, clock);
         clock += 0.5;
-        assert!(anim.tick(clock));
-        assert!(anim.animating());
-        let progress_at_interrupt = anim.timed_progress();
+        assert!(anim.in_progress(clock));
+        let progress_at_interrupt = anim.timed_progress(clock);
         assert_eq!(progress_at_interrupt, Timing::EaseInOut.timing(0.5));
         anim.transition(0.0, clock);
+        assert_eq!(anim.timed_progress(clock), progress_at_interrupt);
         clock += 0.2;
-        assert_eq!(anim.timed_progress(), progress_at_interrupt);
-        assert!(anim.tick(clock));
-        assert!(anim.animating());
+        assert!(anim.in_progress(clock));
         anim.transition(1.0, clock);
         clock += 0.2;
-        assert!(anim.tick(clock));
-        assert!(anim.animating());
+        assert!(anim.in_progress(clock));
     }
 
     impl AnimationTime for f32 {
