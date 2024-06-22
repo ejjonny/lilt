@@ -1,4 +1,78 @@
-use iced_core::Color;
+#[derive(Debug, Clone, Copy)]
+pub struct Animated<T, Time>
+where
+    T: FloatRepresentable,
+    Time: AnimationTime,
+{
+    pub value: T,
+    animation: Animation<Time, f32>,
+}
+
+impl<T, Time> Animated<T, Time>
+where
+    T: FloatRepresentable,
+    Time: AnimationTime,
+{
+    pub fn transition(&mut self, new_value: T, at: Time) {
+        self.animation.transition(new_value.float_value(), at);
+        self.value = new_value
+    }
+}
+
+impl<T, Time> Animated<T, Time>
+where
+    T: FloatRepresentable,
+    Time: AnimationTime,
+{
+    pub fn in_progress(self, time: Time) -> bool {
+        self.animation.in_progress(time)
+    }
+}
+
+impl<Time> Animated<bool, Time>
+where
+    Time: AnimationTime,
+{
+    pub fn interpolating<I>(&self, from: I, to: I, time: Time) -> I
+    where
+        I: Interpolable,
+    {
+        from.interpolated(to, self.animation.timed_progress(time))
+    }
+}
+
+impl FloatRepresentable for bool {
+    fn float_value(&self) -> f32 {
+        if *self {
+            1.
+        } else {
+            0.
+        }
+    }
+}
+
+pub trait FloatRepresentable {
+    fn float_value(&self) -> f32;
+}
+
+impl<T, Time> Animated<T, Time>
+where
+    T: FloatRepresentable,
+    Time: AnimationTime,
+{
+    pub fn new(value: T, duration_ms: f32, timing: Timing) -> Self {
+        let float = value.float_value();
+        Animated {
+            value,
+            animation: Animation {
+                origin: float,
+                duration_ms,
+                timing,
+                animation_state: None,
+            },
+        }
+    }
+}
 
 pub trait AnimatableValue<T = Self>
 where
@@ -78,7 +152,7 @@ pub struct AnimationState<Time, Value> {
     pub speed_at_interrupt: Option<f32>,
 }
 
-pub trait AnimationTime: Copy {
+pub trait AnimationTime: Copy + std::fmt::Debug + Send {
     fn elapsed_since(self, time: Self) -> f32;
 }
 
@@ -90,7 +164,7 @@ impl AnimationTime for std::time::Instant {
 
 impl<Time, Value> Animation<Time, Value>
 where
-    Time: AnimationTime + std::fmt::Debug,
+    Time: AnimationTime,
     Value: AnimatableValue,
 {
     pub fn new(origin: Value, duration: f32, timing: Timing) -> Self {
@@ -98,6 +172,14 @@ where
             origin,
             duration_ms: duration,
             timing,
+            animation_state: None,
+        }
+    }
+    pub fn default(origin: Value) -> Self {
+        Animation {
+            origin,
+            duration_ms: 100.,
+            timing: Timing::Linear,
             animation_state: None,
         }
     }
@@ -174,6 +256,12 @@ where
             _ => false,
         }
     }
+
+    pub fn update(&mut self, time: Time) {
+        if !self.in_progress(time) && self.animation_state.is_some() {
+            self.animation_state = None;
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -216,22 +304,22 @@ pub trait Interpolable {
     fn interpolated(self, other: Self, ratio: f32) -> Self;
 }
 
-impl Interpolable for Color {
-    fn interpolated(self, other: Self, ratio: f32) -> Self {
-        if ratio >= 1.0 {
-            return other;
-        } else if ratio > 0.0 {
-            return Color::new(
-                self.r.interpolated(other.r, ratio),
-                self.g.interpolated(other.g, ratio),
-                self.b.interpolated(other.b, ratio),
-                self.a.interpolated(other.a, ratio),
-            );
-        } else {
-            return self;
-        }
-    }
-}
+// impl Interpolable for Color {
+//     fn interpolated(self, other: Self, ratio: f32) -> Self {
+//         if ratio >= 1.0 {
+//             return other;
+//         } else if ratio > 0.0 {
+//             return Color::new(
+//                 self.r.interpolated(other.r, ratio),
+//                 self.g.interpolated(other.g, ratio),
+//                 self.b.interpolated(other.b, ratio),
+//                 self.a.interpolated(other.a, ratio),
+//             );
+//         } else {
+//             return self;
+//         }
+//     }
+// }
 
 impl Interpolable for f32 {
     fn interpolated(self, other: Self, ratio: f32) -> Self {

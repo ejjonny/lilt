@@ -1,13 +1,14 @@
 [package]
-name = "iced-animator"
-version = "0.1.0"
+name = "animator"
+version = "0.0.1"
 edition = "2021"
 
 [lib]
 crate-type = ["lib"]
 
-[dependencies]
-iced = { git = "https://github.com/ejjonny/iced", branch = "build" }
-iced_core = { git = "https://github.com/ejjonny/iced", branch = "build" }
-iced_renderer = { git = "https://github.com/ejjonny/iced", branch = "build" }
-iced_style = { git = "https://github.com/ejjonny/iced", branch = "build" }
+[[example]]
+name = "iced"
+path = "examples/iced/src/main.rs"
+
+[dev-dependencies]
+iced = "0.12.1"

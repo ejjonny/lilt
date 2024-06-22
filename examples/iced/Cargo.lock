@@ -80,13 +80,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "animator"
-version = "0.0.1"
-dependencies = [
- "iced",
-]
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -977,6 +970,19 @@ dependencies = [
  "iced_widget",
  "iced_winit",
  "thiserror",
+]
+
+[[package]]
+name = "iced-animator"
+version = "0.1.0"
+
+[[package]]
+name = "iced-demo"
+version = "0.1.0"
+dependencies = [
+ "iced",
+ "iced-animator",
+ "iced_futures",
 ]
 
 [[package]]
