@@ -1,25 +1,17 @@
-use iced::executor;
 use iced::widget::{horizontal_space, vertical_space, Button, Column, Row, Text};
 use iced::window::frames;
+use iced::{executor, Color};
 use iced::{Application, Command, Element, Length, Settings, Theme};
-use lilt::traits::AnimationTime;
-use lilt::Animated;
 use lilt::Easing;
-use std::marker::PhantomData;
+use lilt::{Animated, Interpolable};
+use std::time::Instant;
 
 pub fn main() -> iced::Result {
-    Example::<std::time::Instant>::run(Settings::with_flags(AppFlags {
-        now: Box::new(|| Box::new(|| std::time::Instant::now())),
-    }))
+    Example::run(Settings::default())
 }
 
-struct Example<Time>
-where
-    Time: AnimationTime,
-{
-    animated_toggle: Animated<bool, Time>,
-    now: Box<dyn Fn() -> Box<dyn Fn() -> Time>>,
-    _phantom: PhantomData<Time>,
+struct Example {
+    animated_toggle: Animated<bool, Instant>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -28,28 +20,16 @@ enum AppMessage {
     Tick,
 }
 
-struct AppFlags<Time>
-where
-    Time: AnimationTime,
-{
-    now: Box<dyn Fn() -> Box<dyn Fn() -> Time>>,
-}
-
-impl<Time> Application for Example<Time>
-where
-    Time: AnimationTime + 'static,
-{
-    type Message = AppMessage;
-    type Flags = AppFlags<Time>;
+impl Application for Example {
     type Executor = executor::Default;
+    type Message = AppMessage;
     type Theme = Theme;
+    type Flags = ();
 
-    fn new(flags: Self::Flags) -> (Self, Command<AppMessage>) {
+    fn new(_flags: Self::Flags) -> (Self, Command<AppMessage>) {
         (
             Self {
                 animated_toggle: Animated::new(false, 300., Easing::EaseOut),
-                now: flags.now,
-                _phantom: PhantomData,
             },
             Command::none(),
         )
@@ -60,7 +40,7 @@ where
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
-        let now = (self.now)()();
+        let now = std::time::Instant::now();
         if self.animated_toggle.in_progress(now) {
             frames().map(|_| AppMessage::Tick)
         } else {
@@ -69,7 +49,7 @@ where
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
-        let now = (self.now)()();
+        let now = std::time::Instant::now();
         match message {
             AppMessage::Animate => self
                 .animated_toggle
@@ -80,7 +60,7 @@ where
     }
 
     fn view(&self) -> Element<AppMessage> {
-        let now = (self.now)()();
+        let now = std::time::Instant::now();
         Column::new()
             .align_items(iced::Alignment::Center)
             .push(vertical_space())
@@ -92,6 +72,13 @@ where
                         .push(horizontal_space()),
                 )
                 .on_press(AppMessage::Animate)
+                .style(iced::theme::Button::custom(
+                    self.animated_toggle.interpolate(
+                        ButtonStyle::new(Color::from_rgb8(255, 0, 0)),
+                        ButtonStyle::new(Color::from_rgb8(0, 0, 255)),
+                        now,
+                    ),
+                ))
                 .width(self.animated_toggle.interpolate(100., 500., now)),
             )
             .push(vertical_space())
@@ -101,19 +88,61 @@ where
     }
 }
 
-// impl Interpolable for Color {
-//     fn interpolated(self, other: Self, ratio: f32) -> Self {
-//         if ratio >= 1.0 {
-//             return other;
-//         } else if ratio > 0.0 {
-//             return Color::new(
-//                 self.r.interpolated(other.r, ratio),
-//                 self.g.interpolated(other.g, ratio),
-//                 self.b.interpolated(other.b, ratio),
-//                 self.a.interpolated(other.a, ratio),
-//             );
-//         } else {
-//             return self;
-//         }
-//     }
-// }
+struct ButtonStyle {
+    background: IColor,
+}
+
+impl ButtonStyle {
+    fn new(background: Color) -> Self {
+        Self {
+            background: IColor::new(background),
+        }
+    }
+}
+
+impl iced::widget::button::StyleSheet for ButtonStyle {
+    type Style = Theme;
+    fn active(&self, _style: &Self::Style) -> iced::widget::button::Appearance {
+        let mut a = iced::widget::button::Appearance::default();
+        a.background = Some(iced::Background::Color(self.background.color));
+        a.text_color = Color::WHITE;
+        a.border = iced::Border::with_radius(10.);
+        return a;
+    }
+}
+impl Interpolable for ButtonStyle {
+    fn interpolated(self, other: Self, ratio: f32) -> Self {
+        Self {
+            background: self.background.interpolated(other.background, ratio),
+        }
+    }
+}
+
+struct IColor {
+    color: Color,
+}
+
+impl IColor {
+    fn new(color: Color) -> Self {
+        Self { color }
+    }
+}
+
+impl Interpolable for IColor {
+    fn interpolated(self, other: Self, ratio: f32) -> Self {
+        if ratio >= 1.0 {
+            return other;
+        } else if ratio > 0.0 {
+            return Self {
+                color: Color::new(
+                    self.color.r.interpolated(other.color.r, ratio),
+                    self.color.g.interpolated(other.color.g, ratio),
+                    self.color.b.interpolated(other.color.b, ratio),
+                    self.color.a.interpolated(other.color.a, ratio),
+                ),
+            };
+        } else {
+            return self;
+        }
+    }
+}
