@@ -1,2 +1,2 @@
-pub mod animator;
-pub mod animation;
+pub mod animated;
+pub mod traits;

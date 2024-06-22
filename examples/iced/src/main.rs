@@ -1,5 +1,6 @@
-use animator::animation::Timing;
-use animator::animation::{Animated, AnimationTime};
+use animator::animated::Animated;
+use animator::animated::Timing;
+use animator::traits::AnimationTime;
 use iced::executor;
 use iced::widget::{horizontal_space, vertical_space, Button, Column, Row, Text};
 use iced::window::frames;
@@ -91,7 +92,7 @@ where
                         .push(horizontal_space()),
                 )
                 .on_press(AppMessage::Animate)
-                .width(self.animated_toggle.interpolating(100., 500., now)),
+                .width(self.animated_toggle.interpolate(100., 500., now)),
             )
             .push(vertical_space())
             .width(Length::Fill)
@@ -99,3 +100,20 @@ where
             .into()
     }
 }
+
+// impl Interpolable for Color {
+//     fn interpolated(self, other: Self, ratio: f32) -> Self {
+//         if ratio >= 1.0 {
+//             return other;
+//         } else if ratio > 0.0 {
+//             return Color::new(
+//                 self.r.interpolated(other.r, ratio),
+//                 self.g.interpolated(other.g, ratio),
+//                 self.b.interpolated(other.b, ratio),
+//                 self.a.interpolated(other.a, ratio),
+//             );
+//         } else {
+//             return self;
+//         }
+//     }
+// }
