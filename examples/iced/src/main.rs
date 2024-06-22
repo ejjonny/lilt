@@ -1,10 +1,10 @@
-use animator::animated::Animated;
-use animator::animated::Timing;
-use animator::traits::AnimationTime;
 use iced::executor;
 use iced::widget::{horizontal_space, vertical_space, Button, Column, Row, Text};
 use iced::window::frames;
 use iced::{Application, Command, Element, Length, Settings, Theme};
+use lilt::traits::AnimationTime;
+use lilt::Animated;
+use lilt::Easing;
 use std::marker::PhantomData;
 
 pub fn main() -> iced::Result {
@@ -47,7 +47,7 @@ where
     fn new(flags: Self::Flags) -> (Self, Command<AppMessage>) {
         (
             Self {
-                animated_toggle: Animated::new(false, 300., Timing::EaseOut),
+                animated_toggle: Animated::new(false, 300., Easing::EaseOut),
                 now: flags.now,
                 _phantom: PhantomData,
             },

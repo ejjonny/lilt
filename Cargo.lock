@@ -80,13 +80,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "animator"
-version = "0.0.1"
-dependencies = [
- "iced",
-]
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1272,6 +1265,13 @@ dependencies = [
  "bitflags 2.5.0",
  "libc",
  "redox_syscall 0.4.1",
+]
+
+[[package]]
+name = "lilt"
+version = "0.0.1"
+dependencies = [
+ "iced",
 ]
 
 [[package]]
