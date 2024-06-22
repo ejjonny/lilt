@@ -42,3 +42,4 @@ let interpolated_width = self.animated_toggle.interpolate(100., 500., now)
 // Or add an `Interpolable` implementation to an object of your choice, like a color
 let interpolated_color = self.animated_toggle.interpolate(my_color_a, my_color_b, now)
 ```
+## [Examples](examples/)
