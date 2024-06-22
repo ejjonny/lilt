@@ -12,15 +12,15 @@ struct MyViewState {
 }
 ```
 
-Initialize your state
+When you initialize your view state - choose the duration & easing you want.
 
 ```rust
-Self {
+MyViewState {
     animated_toggle: Animated::new(false, 300., Easing::EaseOut),
 }
 ```
 
-When your state needs to update, call the `transition` function on your animated state, passing the current time.
+When your state needs an update, call the `transition` function on your animated state, passing the current time.
 
 ```rust
 let now = std::time::Instant::now();
