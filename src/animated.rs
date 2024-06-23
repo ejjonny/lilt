@@ -1,5 +1,5 @@
 use crate::traits::{AnimatableValue, AnimationTime, FloatRepresentable, Interpolable};
-/// A wrapper for interpolating state transitions
+/// Wraps state to enable interpolated transitions
 ///
 /// # Example
 /// // Define
@@ -17,12 +17,13 @@ use crate::traits::{AnimatableValue, AnimationTime, FloatRepresentable, Interpol
 ///    .transition(!self.animated_toggle.value, now)
 /// // Interpolate
 /// let interpolated_width = self.animated_toggle.interpolate(100., 500., now)
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Animated<T, Time>
 where
     T: FloatRepresentable,
     Time: AnimationTime,
 {
+    /// The wrapped state - updates to this value can be interpolated
     pub value: T,
     animation: Animation<Time, f32>,
 }
@@ -32,6 +33,7 @@ where
     T: FloatRepresentable,
     Time: AnimationTime,
 {
+    /// Creates an animated value
     pub fn new(value: T, duration_ms: f32, timing: Easing) -> Self {
         let float = value.float_value();
         Animated {
@@ -39,13 +41,16 @@ where
             animation: Animation::new(float, duration_ms, timing),
         }
     }
+    /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
         self.animation.transition(new_value.float_value(), at);
         self.value = new_value
     }
+    /// Returns whether the animation is complete, given the current time
     pub fn in_progress(self, time: Time) -> bool {
         self.animation.in_progress(time)
     }
+    /// Interpolates any value that implements `Interpolable`, given the current time.
     pub fn interpolate<I>(&self, from: I, to: I, time: Time) -> I
     where
         I: Interpolable,
@@ -54,7 +59,7 @@ where
     }
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 struct Animation<Time, Value>
 where
     Value: AnimatableValue,
@@ -65,7 +70,7 @@ where
     animation_state: Option<AnimationState<Time, Value>>,
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 struct AnimationState<Time, Value> {
     destination: Value,
     started_time: Time,
@@ -160,7 +165,8 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+/// Animation easing curves - defined as a function from 0 to 1
+#[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
 pub enum Easing {
     #[default]
     Linear,

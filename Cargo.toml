@@ -6,6 +6,7 @@ description = "A simple, dependency free library for running interruptable, tran
 repository = "https://github.com/ejjonny/lilt"
 license = "MIT"
 keywords = ["animation", "interpolation"]
+authors = ["ejjonny"]
 
 [lib]
 crate-type = ["lib"]

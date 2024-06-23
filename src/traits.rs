@@ -1,3 +1,4 @@
+/// An interface for interacting with time.
 pub trait AnimationTime: Copy + std::fmt::Debug + Send {
     fn elapsed_since(self, time: Self) -> f32;
 }
@@ -8,6 +9,12 @@ impl AnimationTime for std::time::Instant {
     }
 }
 
+/// Defines a float representation for arbitrary types
+///
+/// The actual float values are pretty arbitrary - as interpolation from
+/// one float to another will usually look the same.
+/// This simply correlates values with a "location"
+/// that can be interpolated towards.
 pub trait FloatRepresentable {
     fn float_value(&self) -> f32;
 }
@@ -22,6 +29,7 @@ impl FloatRepresentable for bool {
     }
 }
 
+/// Adds vector operations to arbitrary types
 pub trait AnimatableValue<T = Self>
 where
     Self: Clone + std::fmt::Debug + PartialEq + Sized,
@@ -82,6 +90,7 @@ impl AnimatableValue for f32 {
     }
 }
 
+/// A type implementing `Interpolable` can be used with `Animated<T>.interpolate(...)`
 pub trait Interpolable {
     fn interpolated(self, other: Self, ratio: f32) -> Self;
 }
