@@ -1,5 +1,22 @@
 use crate::traits::{AnimatableValue, AnimationTime, FloatRepresentable, Interpolable};
-
+/// A wrapper for interpolating state transitions
+///
+/// # Example
+/// // Define
+/// struct MyViewState {
+///    animated_toggle: Animated<bool, Instant>,
+/// }
+/// // Initialize
+/// MyViewState {
+///    animated_toggle: Animated::new(false, 300., Easing::EaseOut),
+/// }
+/// // Update
+/// let now = std::time::Instant::now();
+/// self
+///    .animated_toggle
+///    .transition(!self.animated_toggle.value, now)
+/// // Interpolate
+/// let interpolated_width = self.animated_toggle.interpolate(100., 500., now)
 #[derive(Debug, Clone, Copy)]
 pub struct Animated<T, Time>
 where
