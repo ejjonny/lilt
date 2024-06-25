@@ -2,21 +2,20 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// Wraps state to enable interpolated transitions
 ///
 /// # Example
-/// // Define
 /// struct MyViewState {
-///    animated_toggle: Animated<bool, Instant>,
+///     animated_toggle: Animated<bool, Instant>,
 /// }
 /// // Initialize
-/// MyViewState {
-///    animated_toggle: Animated::new(false, 300., Easing::EaseOut),
-/// }
+/// let mut state = MyViewState {
+///     animated_toggle: Animated::new(false),
+/// };
 /// // Update
 /// let now = std::time::Instant::now();
-/// self
-///    .animated_toggle
-///    .transition(!self.animated_toggle.value, now)
-/// // Interpolate
-/// let interpolated_width = self.animated_toggle.interpolate(100., 500., now)
+/// state
+///     .animated_toggle
+///     .transition(!state.animated_toggle.value, now);
+/// // Animate
+/// let animated_width = state.animated_toggle.animate(0., 100., now);
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
@@ -429,6 +428,24 @@ impl Easing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_docs() {
+        struct MyViewState {
+            animated_toggle: Animated<bool, std::time::Instant>,
+        }
+        // Initialize
+        let mut state = MyViewState {
+            animated_toggle: Animated::new(false),
+        };
+        // Update
+        let now = std::time::Instant::now();
+        state
+            .animated_toggle
+            .transition(!state.animated_toggle.value, now);
+        // Animate
+        let _animated_width = state.animated_toggle.animate(0., 100., now);
+    }
 
     fn plot_easing(easing: Easing) {
         const WIDTH: usize = 80;
