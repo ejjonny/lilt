@@ -27,24 +27,24 @@ impl Application for Example {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<AppMessage>) {
-        let left: Vec<Animated<bool, Instant>> = (0..1)
+        let left: Vec<Animated<bool, Instant>> = (0..10)
             .map(|i| {
                 Animated::new(false)
-                    .duration(300.)
-                    .easing(Easing::EaseInOut)
+                    .duration(800.)
+                    .easing(Easing::EaseInOutBack)
                     .delay(i as f32 * 30.)
-                    .repeat(5)
-                    .auto_reverse()
+                // .repeat(5)
+                // .auto_reverse()
             })
             .rev()
             .collect();
-        let right: Vec<Animated<bool, Instant>> = (0..0)
+        let right: Vec<Animated<bool, Instant>> = (0..10)
             .map(|i| {
                 Animated::new(false)
-                    .duration(300.)
-                    .easing(Easing::EaseInOut)
+                    .duration(800.)
+                    .easing(Easing::EaseInOutBounce)
                     .delay(i as f32 * 30.)
-                    .repeat(5)
+                // .repeat(5)
             })
             .collect();
         (
