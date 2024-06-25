@@ -29,7 +29,7 @@ impl Application for Example {
     fn new(_flags: Self::Flags) -> (Self, Command<AppMessage>) {
         (
             Self {
-                animated_toggle: Animated::new(false, 300., Easing::EaseOut, 0.),
+                animated_toggle: Animated::new(false).duration(300.).easing(Easing::EaseOut),
             },
             Command::none(),
         )
