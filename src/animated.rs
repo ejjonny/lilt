@@ -47,7 +47,7 @@ where
         self.value = new_value
     }
     /// Returns whether the animation is complete, given the current time
-    pub fn in_progress(self, time: Time) -> bool {
+    pub fn in_progress(&self, time: Time) -> bool {
         self.animation.in_progress(time)
     }
     /// Interpolates any value that implements `Interpolable`, given the current time.

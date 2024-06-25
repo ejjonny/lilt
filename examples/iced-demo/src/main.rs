@@ -1,5 +1,4 @@
-use iced::widget::container::StyleSheet;
-use iced::widget::{container, horizontal_space, vertical_space, Button, Column, Row, Space, Text};
+use iced::widget::{container, horizontal_space, Button, Column, Row, Space, Text};
 use iced::window::frames;
 use iced::{executor, Color};
 use iced::{Application, Command, Element, Length, Settings, Theme};
@@ -35,13 +34,6 @@ impl Application for Example {
             .map(|i| Animated::new(false, 900., Easing::EaseInOut, i as f32 * 10.))
             .rev()
             .collect();
-        // let left: Vec<Animated<bool, Instant>> = (0..1)
-        //     .map(|i| Animated::new(false, 300., Easing::EaseInOut, 0.))
-        //     .collect();
-        // let right: Vec<Animated<bool, Instant>> = (0..1)
-        //     .map(|i| Animated::new(false, 900., Easing::EaseInOut, 0.))
-        //     .rev()
-        //     .collect();
         (
             Self {
                 bars: [left, right].concat(),
