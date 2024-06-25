@@ -1,0 +1,9 @@
+[package]
+name = "iced-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = "0.12.1"
+iced-animator = { path = "../../" }
+iced_futures = "0.12.0"
