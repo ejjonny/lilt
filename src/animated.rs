@@ -234,6 +234,7 @@ where
 }
 
 /// Animation easing curves - defined as a function from 0 to 1
+/// where 0 is the beginning of the animation & 1 is the end
 #[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
 pub enum Easing {
     #[default]
@@ -244,7 +245,7 @@ pub enum Easing {
     EaseInQuint,
     EaseOutQuint,
     EaseInOutQuint,
-    Custom,
+    Custom(fn(f32) -> f32),
 }
 
 impl Easing {
@@ -265,7 +266,7 @@ impl Easing {
                     1.0 - f32::powf(-2.0 * x + 2.0, 5.0) / 2.0
                 }
             }
-            _ => linear_progress,
+            Easing::Custom(f) => f(linear_progress),
         }
     }
 }
@@ -273,6 +274,14 @@ impl Easing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_custom_easing() {
+        let custom_ease = Easing::Custom(|x| x * x); // Quadratic ease-in
+        assert_eq!(custom_ease.value(0.0), 0.0);
+        assert_eq!(custom_ease.value(0.5), 0.25);
+        assert_eq!(custom_ease.value(1.0), 1.0);
+    }
 
     #[test]
     fn test_new_animation() {
@@ -445,12 +454,8 @@ mod tests {
     }
 
     impl AnimationTime for f32 {
-        type Duration = f32;
         fn elapsed_since(self, time: Self) -> f32 {
             self - time
-        }
-        fn advanced_by(self, duration_ms: f32) -> Self {
-            self + duration_ms
         }
     }
 

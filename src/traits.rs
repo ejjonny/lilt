@@ -1,22 +1,11 @@
 /// An interface for interacting with time.
 pub trait AnimationTime: Copy + std::fmt::Debug + Send {
-    type Duration;
     fn elapsed_since(self, time: Self) -> f32;
-    fn advanced_by(self, duration_ms: f32) -> Self;
 }
 
 impl AnimationTime for std::time::Instant {
-    type Duration = std::time::Duration;
     fn elapsed_since(self, time: Self) -> f32 {
         (self - time).as_millis() as f32
-    }
-    fn advanced_by(self, duration_ms: f32) -> Self {
-        let duration = std::time::Duration::from_secs_f32(f32::abs(duration_ms) * 1000.);
-        if duration_ms.is_sign_positive() {
-            self + duration
-        } else {
-            self - duration
-        }
     }
 }
 
