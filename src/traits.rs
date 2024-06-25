@@ -11,7 +11,12 @@ impl AnimationTime for std::time::Instant {
         (self - time).as_millis() as f32
     }
     fn advanced_by(self, duration_ms: f32) -> Self {
-        self + std::time::Duration::from_millis(duration_ms as u64)
+        let duration = std::time::Duration::from_secs_f32(f32::abs(duration_ms) * 1000.);
+        if duration_ms.is_sign_positive() {
+            self + duration
+        } else {
+            self - duration
+        }
     }
 }
 

@@ -145,7 +145,7 @@ struct Animation<Time> {
     animation_state: Option<AnimationState<Time>>,
 }
 
-const MAX_INTERRUPTIONS: usize = 1;
+const MAX_INTERRUPTIONS: usize = 10;
 const INTERRUPT_LERP_DURATION_RATIO: f32 = 0.25;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -169,21 +169,14 @@ where
     }
 
     fn interrupt_lerp_duration_ms(&self) -> f32 {
-        f32::min(
-            (self.duration_ms * INTERRUPT_LERP_DURATION_RATIO) + self.delay_ms,
-            200.,
-        )
+        0.
+        // f32::min(self.duration_ms * INTERRUPT_LERP_DURATION_RATIO, 200.)
     }
 
     fn transition(&mut self, destination: f32, time: Time) -> Option<Interruption<Time>> {
+        let interrupt_lerp_duration = self.interrupt_lerp_duration_ms();
         let linear_progress = self.linear_progress(time);
         let interrupted = self.clone();
-        let interrupt_lerp_duration =
-            if self.linear_progress(time.advanced_by(self.interrupt_lerp_duration_ms())) >= 1. {
-                0.
-            } else {
-                self.interrupt_lerp_duration_ms()
-            };
         match &mut self.animation_state {
             Some(animation) if linear_progress != animation.destination => {
                 // Snapshot current state as the new animation origin
@@ -209,7 +202,11 @@ where
 
     fn linear_progress(&self, time: Time) -> f32 {
         if let Some(animation) = &self.animation_state {
-            let elapsed = f32::max(0., time.elapsed_since(animation.start_time) - self.delay_ms);
+            let elapsed = f32::max(
+                0.,
+                time.elapsed_since(animation.start_time)
+                    - (self.delay_ms - self.interrupt_lerp_duration_ms()),
+            );
             assert!(elapsed.is_sign_positive());
             let position_delta: f32;
             let duration = self.duration_ms;
