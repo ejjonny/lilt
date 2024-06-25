@@ -33,8 +33,6 @@ impl Application for Example {
                     .duration(800.)
                     .easing(Easing::EaseInOutBack)
                     .delay(i as f32 * 30.)
-                // .repeat(5)
-                // .auto_reverse()
             })
             .rev()
             .collect();
@@ -42,9 +40,8 @@ impl Application for Example {
             .map(|i| {
                 Animated::new(false)
                     .duration(800.)
-                    .easing(Easing::EaseInOutBounce)
+                    .easing(Easing::EaseOutBounce)
                     .delay(i as f32 * 30.)
-                // .repeat(5)
             })
             .collect();
         (
