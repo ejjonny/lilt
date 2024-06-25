@@ -973,6 +973,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced-animator"
+version = "0.1.0"
+
+[[package]]
+name = "iced-demo"
+version = "0.1.0"
+dependencies = [
+ "iced",
+ "iced-animator",
+ "iced_futures",
+]
+
+[[package]]
 name = "iced_core"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1265,13 +1278,6 @@ dependencies = [
  "bitflags 2.5.0",
  "libc",
  "redox_syscall 0.4.1",
-]
-
-[[package]]
-name = "lilt"
-version = "0.1.0"
-dependencies = [
- "iced",
 ]
 
 [[package]]

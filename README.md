@@ -19,27 +19,28 @@ struct MyViewState {
 When you initialize your view state - choose the duration & easing you want.
 
 ```rust
-MyViewState {
-    animated_toggle: Animated::new(false, 300., Easing::EaseOut),
-}
+let mut state = MyViewState {
+    animated_toggle: Animated::new(false),
+};
 ```
 
 When your state needs an update, call the `transition` function on your animated state, passing the current time.
 
 ```rust
 let now = std::time::Instant::now();
-self
+state
     .animated_toggle
-    .transition(!self.animated_toggle.value, now)
+    .transition(!state.animated_toggle.value, now);
 ```
 
 While rendering a view based on your state - use the `interpolate` function on your animated state to get the in-between value for the current frame.
 
 ```rust
 let now = std::time::Instant::now();
-// Use the interpolated float for something like width, height, offset
-let interpolated_width = self.animated_toggle.interpolate(100., 500., now)
+// Use the animated float for something like width, height, offset
+let animated_width = self.animated_toggle.animate(100., 500., now)
 // Or add an `Interpolable` implementation to an object of your choice, like a color
-let interpolated_color = self.animated_toggle.interpolate(my_color_a, my_color_b, now)
+let animated_color = self.animated_toggle.animate(my_color_a, my_color_b, now)
 ```
+
 ## [Examples](examples/)

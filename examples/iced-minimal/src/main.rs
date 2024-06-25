@@ -29,7 +29,7 @@ impl Application for Example {
     fn new(_flags: Self::Flags) -> (Self, Command<AppMessage>) {
         (
             Self {
-                animated_toggle: Animated::new(false, 300., Easing::EaseOut),
+                animated_toggle: Animated::new(false).duration(300.).easing(Easing::EaseOut),
             },
             Command::none(),
         )
@@ -72,14 +72,12 @@ impl Application for Example {
                         .push(horizontal_space()),
                 )
                 .on_press(AppMessage::Animate)
-                .style(iced::theme::Button::custom(
-                    self.animated_toggle.interpolate(
-                        ButtonStyle::new(Color::from_rgb8(255, 0, 0)),
-                        ButtonStyle::new(Color::from_rgb8(0, 0, 255)),
-                        now,
-                    ),
-                ))
-                .width(self.animated_toggle.interpolate(100., 500., now)),
+                .style(iced::theme::Button::custom(self.animated_toggle.animate(
+                    ButtonStyle::new(Color::from_rgb8(255, 0, 0)),
+                    ButtonStyle::new(Color::from_rgb8(0, 0, 255)),
+                    now,
+                )))
+                .width(self.animated_toggle.animate(100., 500., now)),
             )
             .push(vertical_space())
             .width(Length::Fill)
