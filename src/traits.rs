@@ -1,11 +1,17 @@
 /// An interface for interacting with time.
 pub trait AnimationTime: Copy + std::fmt::Debug + Send {
+    type Duration;
     fn elapsed_since(self, time: Self) -> f32;
+    fn advanced_by(self, duration_ms: f32) -> Self;
 }
 
 impl AnimationTime for std::time::Instant {
+    type Duration = std::time::Duration;
     fn elapsed_since(self, time: Self) -> f32 {
         (self - time).as_millis() as f32
+    }
+    fn advanced_by(self, duration_ms: f32) -> Self {
+        self + std::time::Duration::from_millis(duration_ms as u64)
     }
 }
 
@@ -34,6 +40,7 @@ pub trait AnimatableValue<T = Self>
 where
     Self: Clone + std::fmt::Debug + PartialEq + Sized,
 {
+    fn zero() -> Self;
     fn distance(&self, other: &Self) -> f32;
     fn diff(&self, other: &Self) -> Self;
     fn sum(&self, other: &Self) -> Self;
@@ -43,6 +50,9 @@ where
 }
 
 impl AnimatableValue for (f32, f32) {
+    fn zero() -> Self {
+        (0., 0.)
+    }
     fn distance(&self, other: &Self) -> f32 {
         self.diff(other).magnitude()
     }
@@ -70,6 +80,9 @@ impl AnimatableValue for (f32, f32) {
 }
 
 impl AnimatableValue for f32 {
+    fn zero() -> Self {
+        0.
+    }
     fn distance(&self, other: &Self) -> f32 {
         self.diff(other).magnitude()
     }

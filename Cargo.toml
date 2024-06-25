@@ -12,8 +12,12 @@ authors = ["ejjonny"]
 crate-type = ["lib"]
 
 [[example]]
-name = "iced"
-path = "examples/iced/src/main.rs"
+name = "iced-minimal"
+path = "examples/iced-minimal/src/main.rs"
+
+[[example]]
+name = "iced-demo"
+path = "examples/iced-demo/src/main.rs"
 
 [dev-dependencies]
 iced = "0.12.1"
