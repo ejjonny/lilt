@@ -25,7 +25,7 @@ where
 {
     /// The wrapped state - updates to this value can be interpolated
     pub value: T,
-    animation: InterpolatedInterruptionAnimation<Time>,
+    animation: Animation<Time>,
 }
 
 impl<T, Time> Animated<T, Time>
@@ -38,12 +38,7 @@ where
         let float = value.float_value();
         Animated {
             value,
-            animation: InterpolatedInterruptionAnimation::new(Animation::new(
-                float,
-                duration_ms,
-                timing,
-                delay_ms,
-            )),
+            animation: Animation::new(float, duration_ms, timing, delay_ms),
         }
     }
     /// Updates the wrapped state & begins an animation
@@ -52,87 +47,15 @@ where
         self.value = new_value
     }
     /// Returns whether the animation is complete, given the current time
-    // pub fn in_progress(self, time: Time) -> bool {
-    //     self.animation.in_progress(time)
-    // }
+    pub fn in_progress(self, time: Time) -> bool {
+        self.animation.in_progress(time)
+    }
     /// Interpolates any value that implements `Interpolable`, given the current time.
     pub fn animate<I>(&self, from: I, to: I, time: Time) -> I
     where
         I: Interpolable,
     {
         from.interpolated(to, self.animation.timed_progress(time))
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct InterpolatedInterruptionAnimation<Time> {
-    animation: Animation<Time>,
-    interrupted: Vec<Interruption<Time>>,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct Interruption<Time> {
-    animation: Animation<Time>,
-    time: Time,
-}
-
-impl<Time> InterpolatedInterruptionAnimation<Time>
-where
-    Time: AnimationTime,
-{
-    fn new(animation: Animation<Time>) -> Self {
-        Self {
-            animation,
-            interrupted: Vec::new(),
-        }
-    }
-    fn transition(&mut self, destination: f32, time: Time) {
-        if let Some(interrupted) = self.animation.transition(destination, time) {
-            // Clean up interruptions
-            self.interrupted.retain(|i| {
-                time.elapsed_since(i.time) < self.animation.interrupt_lerp_duration_ms()
-            });
-            if self.interrupted.len() >= MAX_INTERRUPTIONS {
-                self.interrupted.remove(0);
-            }
-            self.interrupted.push(interrupted);
-        }
-    }
-    fn timed_progress(&self, time: Time) -> f32 {
-        if !self.interrupted.is_empty() {
-            let mut interrupted_sum = 0.;
-            let interrupted_weights: Vec<f32> = self
-                .interrupted
-                .iter()
-                .map(|i| {
-                    1.0 - f32::max(
-                        0.0,
-                        f32::min(
-                            1.0,
-                            time.elapsed_since(i.time)
-                                / self.animation.interrupt_lerp_duration_ms(),
-                        ),
-                    )
-                })
-                .collect();
-            let total_interrupted_weight: f32 = interrupted_weights.iter().sum();
-
-            if total_interrupted_weight > 0.0 {
-                for (i, interruption) in self.interrupted.iter().enumerate() {
-                    let weight = interrupted_weights[i] / total_interrupted_weight;
-                    interrupted_sum += interruption.animation.timed_progress(time) * weight;
-                }
-
-                let new_weight = Easing::EaseInOut
-                    .value(1. - total_interrupted_weight / self.interrupted.len() as f32);
-                let interrupted_weight = 1.0 - new_weight;
-
-                let new_progress = self.animation.timed_progress(time) * new_weight;
-
-                return new_progress + (interrupted_sum * interrupted_weight);
-            }
-        }
-        self.animation.timed_progress(time)
     }
 }
 
@@ -144,9 +67,6 @@ struct Animation<Time> {
     delay_ms: f32,
     animation_state: Option<AnimationState<Time>>,
 }
-
-const MAX_INTERRUPTIONS: usize = 10;
-const INTERRUPT_LERP_DURATION_RATIO: f32 = 0.25;
 
 #[derive(Clone, Copy, Debug, Default)]
 struct AnimationState<Time> {
@@ -173,7 +93,7 @@ where
         // f32::min(self.duration_ms * INTERRUPT_LERP_DURATION_RATIO, 200.)
     }
 
-    fn transition(&mut self, destination: f32, time: Time) -> Option<Interruption<Time>> {
+    fn transition(&mut self, destination: f32, time: Time) {
         let interrupt_lerp_duration = self.interrupt_lerp_duration_ms();
         let linear_progress = self.linear_progress(time);
         let interrupted = self.clone();
@@ -183,10 +103,6 @@ where
                 self.origin = interrupted.timed_progress(time.advanced_by(interrupt_lerp_duration));
                 animation.destination = destination;
                 animation.start_time = time.advanced_by(interrupt_lerp_duration);
-                return Some(Interruption {
-                    animation: interrupted,
-                    time,
-                });
             }
 
             Some(_) | None => {
@@ -195,7 +111,6 @@ where
                     start_time: time,
                     destination,
                 });
-                return None;
             }
         }
     }
