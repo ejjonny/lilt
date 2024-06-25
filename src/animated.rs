@@ -1,4 +1,4 @@
-use crate::traits::{AnimatableValue, AnimationTime, FloatRepresentable, Interpolable};
+use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// Wraps state to enable interpolated transitions
 ///
 /// # Example
@@ -25,7 +25,7 @@ where
 {
     /// The wrapped state - updates to this value can be interpolated
     pub value: T,
-    animation: InterpolatedInterruptionAnimation<Time, f32>,
+    animation: InterpolatedInterruptionAnimation<Time>,
 }
 
 impl<T, Time> Animated<T, Time>
@@ -65,35 +65,28 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-struct InterpolatedInterruptionAnimation<Time, Value>
-where
-    Value: AnimatableValue,
-{
-    animation: Animation<Time, Value>,
-    interrupted: Vec<Interruption<Time, Value>>,
+struct InterpolatedInterruptionAnimation<Time> {
+    animation: Animation<Time>,
+    interrupted: Vec<Interruption<Time>>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct Interruption<Time, Value>
-where
-    Value: AnimatableValue,
-{
-    animation: Animation<Time, Value>,
+struct Interruption<Time> {
+    animation: Animation<Time>,
     time: Time,
 }
 
-impl<Time, Value> InterpolatedInterruptionAnimation<Time, Value>
+impl<Time> InterpolatedInterruptionAnimation<Time>
 where
     Time: AnimationTime,
-    Value: AnimatableValue,
 {
-    fn new(animation: Animation<Time, Value>) -> Self {
+    fn new(animation: Animation<Time>) -> Self {
         Self {
             animation,
             interrupted: Vec::new(),
         }
     }
-    fn transition(&mut self, destination: Value, time: Time) {
+    fn transition(&mut self, destination: f32, time: Time) {
         if let Some(interrupted) = self.animation.transition(destination, time) {
             // Clean up interruptions
             self.interrupted.retain(|i| {
@@ -105,9 +98,9 @@ where
             self.interrupted.push(interrupted);
         }
     }
-    fn timed_progress(&self, time: Time) -> Value {
+    fn timed_progress(&self, time: Time) -> f32 {
         if !self.interrupted.is_empty() {
-            let mut interrupted_sum = Value::zero();
+            let mut interrupted_sum = 0.;
             let interrupted_weights: Vec<f32> = self
                 .interrupted
                 .iter()
@@ -127,17 +120,16 @@ where
             if total_interrupted_weight > 0.0 {
                 for (i, interruption) in self.interrupted.iter().enumerate() {
                     let weight = interrupted_weights[i] / total_interrupted_weight;
-                    interrupted_sum = interrupted_sum
-                        .sum(&interruption.animation.timed_progress(time).scale(weight));
+                    interrupted_sum += interruption.animation.timed_progress(time) * weight;
                 }
 
                 let new_weight = Easing::EaseInOut
                     .value(1. - total_interrupted_weight / self.interrupted.len() as f32);
                 let interrupted_weight = 1.0 - new_weight;
 
-                let new_progress = self.animation.timed_progress(time).scale(new_weight);
+                let new_progress = self.animation.timed_progress(time) * new_weight;
 
-                return new_progress.sum(&interrupted_sum.scale(interrupted_weight));
+                return new_progress + (interrupted_sum * interrupted_weight);
             }
         }
         self.animation.timed_progress(time)
@@ -145,32 +137,28 @@ where
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct Animation<Time, Value>
-where
-    Value: AnimatableValue,
-{
-    origin: Value,
+struct Animation<Time> {
+    origin: f32,
     duration_ms: f32,
     timing: Easing,
     delay_ms: f32,
-    animation_state: Option<AnimationState<Time, Value>>,
+    animation_state: Option<AnimationState<Time>>,
 }
 
 const MAX_INTERRUPTIONS: usize = 1;
 const INTERRUPT_LERP_DURATION_RATIO: f32 = 0.25;
 
 #[derive(Clone, Copy, Debug, Default)]
-struct AnimationState<Time, Value> {
-    destination: Value,
+struct AnimationState<Time> {
+    destination: f32,
     start_time: Time,
 }
 
-impl<Time, Value> Animation<Time, Value>
+impl<Time> Animation<Time>
 where
     Time: AnimationTime,
-    Value: AnimatableValue,
 {
-    fn new(origin: Value, duration_ms: f32, timing: Easing, delay_ms: f32) -> Self {
+    fn new(origin: f32, duration_ms: f32, timing: Easing, delay_ms: f32) -> Self {
         Animation {
             origin,
             duration_ms,
@@ -187,7 +175,7 @@ where
         )
     }
 
-    fn transition(&mut self, destination: Value, time: Time) -> Option<Interruption<Time, Value>> {
+    fn transition(&mut self, destination: f32, time: Time) -> Option<Interruption<Time>> {
         let linear_progress = self.linear_progress(time);
         let interrupted = self.clone();
         let interrupt_lerp_duration =
@@ -219,36 +207,36 @@ where
         }
     }
 
-    fn linear_progress(&self, time: Time) -> Value {
+    fn linear_progress(&self, time: Time) -> f32 {
         if let Some(animation) = &self.animation_state {
             let elapsed = f32::max(0., time.elapsed_since(animation.start_time) - self.delay_ms);
             assert!(elapsed.is_sign_positive());
-            let position_delta: Value;
+            let position_delta: f32;
             let duration = self.duration_ms;
-            let delta = elapsed / duration;
-            let direction = animation.destination.diff(&self.origin);
-            position_delta = direction.scale(delta);
+            let delta = f32::max(0., f32::min(1., elapsed / duration));
+            let direction = animation.destination - self.origin;
+            position_delta = direction * delta;
             if self.duration_ms == 0.0
-                || position_delta.magnitude() >= self.origin.distance(&animation.destination)
+                || position_delta >= f32::abs(self.origin + animation.destination)
             {
                 return animation.destination.clone();
             } else {
-                return self.origin.sum(&position_delta);
+                return self.origin + position_delta;
             }
         };
         self.origin.clone()
     }
 
-    fn timed_progress(&self, time: Time) -> Value {
+    fn timed_progress(&self, time: Time) -> f32 {
         match &self.animation_state {
             Some(animation) if animation.destination != self.origin => {
                 let position = self.linear_progress(time);
-                let progress_in_animation = position.distance(&self.origin);
-                let range_of_animation = animation.destination.distance(&self.origin);
+                let progress_in_animation = f32::abs(position - self.origin);
+                let range_of_animation = f32::abs(animation.destination - self.origin);
                 let completion = progress_in_animation / range_of_animation;
-                let animation_range = animation.destination.diff(&self.origin);
-                self.origin
-                    .sum(&animation_range.scale(self.timing.value(completion)))
+                let animation_range = animation.destination - self.origin;
+                let result = self.origin + (animation_range * self.timing.value(completion));
+                return result;
             }
             Some(animation) => animation.destination.clone(),
             None => self.origin.clone(),
@@ -307,7 +295,7 @@ mod animatedvalue_tests {
 
     #[test]
     fn test_instant_animation() {
-        let mut anim = Animation::<f32, f32>::new(0.0, 1.0, Easing::Linear, 0.);
+        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::Linear, 0.);
         let clock = 0.0;
         assert_eq!(anim.linear_progress(clock), 0.0);
         // If animation duration is 0.0 the transition should happen instantly
@@ -318,7 +306,7 @@ mod animatedvalue_tests {
 
     #[test]
     fn test_progression() {
-        let mut anim = Animation::<f32, f32>::new(0.0, 1.0, Easing::Linear, 0.);
+        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::Linear, 0.);
         let mut clock = 0.0;
         // With a duration of 1.0 & linear timing we should be halfway to our
         // destination at 0.5
@@ -347,7 +335,7 @@ mod animatedvalue_tests {
 
     #[test]
     fn test_interrupt() {
-        let mut anim = Animation::<f32, f32>::new(0.0, 1.0, Easing::Linear, 0.);
+        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::Linear, 0.);
         let mut clock = 0.0;
         // Interruptions should continue at the same speed the interrupted
         // animation was progressing at.
@@ -375,7 +363,7 @@ mod animatedvalue_tests {
 
     #[test]
     fn test_interrupt_nonlinear() {
-        let mut anim = Animation::<f32, f32>::new(1.0, 10.0, Easing::EaseIn, 0.);
+        let mut anim = Animation::<f32>::new(1.0, 10.0, Easing::EaseIn, 0.);
         let mut clock = 0.0;
 
         // Interrupt halfway through with asymmetrical timing
@@ -401,7 +389,7 @@ mod animatedvalue_tests {
 
     #[test]
     fn test_multiple_interrupts_start_forward() {
-        let mut anim = Animation::<f32, f32>::new(0.0, 1.0, Easing::EaseInOut, 0.);
+        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::EaseInOut, 0.);
         let mut clock = 0.0;
         anim.transition(1.0, clock);
         clock += 0.5;
