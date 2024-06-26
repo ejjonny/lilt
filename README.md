@@ -33,7 +33,7 @@ state
     .transition(!state.animated_toggle.value, now);
 ```
 
-While rendering a view based on your state - use the `interpolate` function on your animated state to get the in-between value for the current frame.
+While rendering a view based on your state - use the `animate` function on your state to get the interpolated value for the current frame.
 
 ```rust
 let now = std::time::Instant::now();
