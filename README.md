@@ -1,5 +1,7 @@
 # Lilt
 
+<img src="https://github.com/ejjonny/lilt/assets/17223924/2c5c1971-f10e-4766-9252-0ff8194e3e5d" width="100%">
+
 ![rust](https://github.com/ejjonny/lilt/actions/workflows/rust.yml/badge.svg)
 
 A simple, dependency free library for running interruptable, transition based animations as a function of time.
