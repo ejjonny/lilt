@@ -18,16 +18,15 @@ struct MyViewState {
 }
 ```
 
-When you initialize your view state - configure your animation to your liking.
-Other options include repetition, delay & auto reversal.
+When you initialize your view state - define the initial state & configure the animation to your liking.
 
 ```rust
 let mut state = MyViewState {
     animated_toggle: Animated::new(false)
-        .duration(800.)
+        .duration(300.)
         .easing(Easing::EaseOut)
         .delay(30.)
-        .repeat_forever(),
+        .repeat(3),
 };
 ```
 
