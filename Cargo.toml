@@ -20,4 +20,6 @@ name = "iced-demo"
 path = "examples/iced-demo/src/main.rs"
 
 [dev-dependencies]
-iced = "0.12.1"
+iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
+    "canvas",
+] }

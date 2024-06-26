@@ -48,27 +48,39 @@ where
             animation: Animation::default(float),
         }
     }
-    // Specifies the duration of the animation in milliseconds
+    /// Specifies the duration of the animation in milliseconds
     pub fn duration(mut self, duration_ms: f32) -> Self {
         self.animation.duration_ms = duration_ms;
         return self;
     }
-    // Specifies the easing with which to animate transitions
+    /// Specifies the easing with which to animate transitions
     pub fn easing(mut self, easing: Easing) -> Self {
         self.animation.easing = easing;
         return self;
     }
-    // Delays the animation by the given number of milliseconds
+    /// Delays the animation by the given number of milliseconds
     pub fn delay(mut self, delay_ms: f32) -> Self {
         self.animation.delay_ms = delay_ms;
         return self;
     }
+    /// Repeats animations the specified number of times
     pub fn repeat(mut self, count: u32) -> Self {
         self.animation.repetitions = count;
         return self;
     }
+    /// Repeats transitions forever
+    pub fn repeat_forever(mut self) -> Self {
+        self.animation.repeat_forever = true;
+        return self;
+    }
+    /// Automatically play repetitions in reverse after they complete
     pub fn auto_reverse(mut self) -> Self {
         self.animation.auto_reverse_repetitions = true;
+        return self;
+    }
+    /// Begins a transition as soon as the animation is created
+    pub fn auto_start(mut self, new_value: T, at: Time) -> Self {
+        self.transition(new_value, at);
         return self;
     }
     /// Updates the wrapped state & begins an animation
@@ -80,7 +92,7 @@ where
     pub fn in_progress(&self, time: Time) -> bool {
         self.animation.in_progress(time)
     }
-    /// Interpolates any value that implements `Interpolable`, given the current time.
+    /// Interpolates any value that implements `Interpolable`, given the current time
     pub fn animate<I>(&self, from: I, to: I, time: Time) -> I
     where
         I: Interpolable,
@@ -97,6 +109,7 @@ struct Animation<Time> {
     delay_ms: f32,
     repetitions: u32,
     auto_reverse_repetitions: bool,
+    repeat_forever: bool,
     animation_state: Option<AnimationState<Time>>,
 }
 
@@ -117,6 +130,7 @@ where
             easing,
             delay_ms,
             repetitions: 1,
+            repeat_forever: false,
             auto_reverse_repetitions: false,
             animation_state: None,
         }
@@ -130,6 +144,7 @@ where
             delay_ms: 0.,
             repetitions: 1,
             auto_reverse_repetitions: false,
+            repeat_forever: false,
             animation_state: None,
         }
     }
@@ -164,12 +179,16 @@ where
             let delta = elapsed / duration;
 
             let true_repetitions = if self.auto_reverse_repetitions {
-                self.repetitions as f32 * 2.0
+                self.repetitions as f32 * 2.0 + 1.
             } else {
                 self.repetitions as f32
             };
 
-            let limited_delta = f32::min(true_repetitions, delta);
+            let limited_delta = if self.repeat_forever {
+                delta
+            } else {
+                f32::min(true_repetitions, delta)
+            };
             let repetition_count = limited_delta.floor();
             let repetition_progress = limited_delta % 1.0;
 
@@ -184,7 +203,7 @@ where
                 repetition_progress
             };
 
-            let final_progress = if limited_delta >= true_repetitions {
+            let final_progress = if !self.repeat_forever && limited_delta >= true_repetitions {
                 if self.auto_reverse_repetitions && self.repetitions % 2 == 0 {
                     0.0 // End at the start position for even repetitions when auto-reversing
                 } else {
@@ -193,7 +212,6 @@ where
             } else {
                 progress
             };
-
             let direction = animation.destination - self.origin;
             let position_delta = direction * final_progress;
 
@@ -445,6 +463,26 @@ mod tests {
             .transition(!state.animated_toggle.value, now);
         // Animate
         let _animated_width = state.animated_toggle.animate(0., 100., now);
+    }
+
+    #[test]
+    fn test_repeat_forever() {
+        // Test using builder pattern
+        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
+        anim.repeat_forever = true;
+
+        anim.transition(10.0, 0.0);
+
+        // Test progression over multiple cycles
+        assert_eq!(anim.timed_progress(0.0), 0.0);
+        assert_eq!(anim.timed_progress(500.0), 5.0);
+        assert_eq!(anim.timed_progress(1000.0), 0.0);
+        assert_eq!(anim.timed_progress(1500.0), 5.0);
+        assert_eq!(anim.timed_progress(2000.0), 0.0);
+        assert_eq!(anim.timed_progress(2500.0), 5.0);
+
+        // Ensure animation is still in progress after multiple cycles
+        assert!(anim.in_progress(10000.0));
     }
 
     fn plot_easing(easing: Easing) {

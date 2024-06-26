@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = "0.12.1"
+iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
+    "canvas",
+] }
 iced-animator = { path = "../../" }
 iced_futures = "0.12.0"
