@@ -55,7 +55,7 @@ impl Example {
             .map(|i| {
                 Animated::new(false)
                     .duration(800.)
-                    .easing(Easing::EaseInOutBounce)
+                    .easing(Easing::EaseOut)
                     .delay(i as f32 * 30.)
                     .repeat_forever()
                     .auto_start(true, time)
