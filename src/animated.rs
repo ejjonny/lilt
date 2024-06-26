@@ -33,11 +33,11 @@ where
     Time: AnimationTime,
 {
     /// Creates an animated value with specified animation settings
-    pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing, delay_ms: f32) -> Self {
+    pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing) -> Self {
         let float = value.float_value();
         Animated {
             value,
-            animation: Animation::new(float, duration_ms, easing, delay_ms),
+            animation: Animation::new(float, duration_ms, easing, 0.),
         }
     }
     /// Creates an animated value with a default animation
