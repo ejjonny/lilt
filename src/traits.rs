@@ -35,7 +35,7 @@ impl FloatRepresentable for f32 {
     }
 }
 
-/// A type implementing `Interpolable` can be used with `Animated<T>.interpolate(...)`
+/// A type implementing `Interpolable` can be used with `Animated<T>.animate(...)`
 pub trait Interpolable {
     fn interpolated(self, other: Self, ratio: f32) -> Self;
 }
