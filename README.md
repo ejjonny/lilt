@@ -10,6 +10,8 @@ This library only implements animations & would be most useful along with a GUI 
 
 ## Getting Started
 
+### Define
+
 Embed the state you want to animate in an `Animated` struct.
 
 ```rust
@@ -30,6 +32,8 @@ let mut state = MyViewState {
 };
 ```
 
+### Transition
+
 When your state needs an update, call the `transition` function on your animated state, passing the current time.
 
 ```rust
@@ -38,6 +42,8 @@ state
     .animated_toggle
     .transition(!state.animated_toggle.value, now);
 ```
+
+### Render
 
 While rendering a view based on your state - use the `animate` function on your state to get the interpolated value for the current frame.
 
