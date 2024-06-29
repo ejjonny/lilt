@@ -29,6 +29,12 @@ impl FloatRepresentable for bool {
     }
 }
 
+impl FloatRepresentable for f32 {
+    fn float_value(&self) -> f32 {
+        *self
+    }
+}
+
 /// A type implementing `Interpolable` can be used with `Animated<T>.interpolate(...)`
 pub trait Interpolable {
     fn interpolated(self, other: Self, ratio: f32) -> Self;

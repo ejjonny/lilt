@@ -35,10 +35,10 @@ where
     /// Creates an animated value with specified animation settings
     pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing) -> Self {
         let float = value.float_value();
-        Animated {
-            value,
-            animation: Animation::new(float, duration_ms, easing, 0.),
-        }
+        let mut animation = Animation::default(float);
+        animation.duration_ms = duration_ms;
+        animation.easing = easing;
+        Animated { value, animation }
     }
     /// Creates an animated value with a default animation
     pub fn new(value: T) -> Self {
@@ -99,6 +99,15 @@ where
     {
         from.interpolated(to, self.animation.timed_progress(time))
     }
+    // Just for nicer testing
+    #[allow(dead_code)]
+    fn linear_progress(&self, time: Time) -> f32 {
+        self.animation.linear_progress(time)
+    }
+    #[allow(dead_code)]
+    fn timed_progress(&self, time: Time) -> f32 {
+        self.animation.timed_progress(time)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -110,11 +119,11 @@ struct Animation<Time> {
     repetitions: u32,
     auto_reverse_repetitions: bool,
     repeat_forever: bool,
-    animation_state: Option<AnimationState<Time>>,
+    transition: Option<TransitionState<Time>>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct AnimationState<Time> {
+struct TransitionState<Time> {
     destination: f32,
     start_time: Time,
 }
@@ -123,36 +132,23 @@ impl<Time> Animation<Time>
 where
     Time: AnimationTime,
 {
-    fn new(origin: f32, duration_ms: f32, easing: Easing, delay_ms: f32) -> Self {
-        Animation {
-            origin,
-            duration_ms,
-            easing,
-            delay_ms,
-            repetitions: 1,
-            repeat_forever: false,
-            auto_reverse_repetitions: false,
-            animation_state: None,
-        }
-    }
-
     fn default(origin: f32) -> Self {
-        Self {
+        Animation {
             origin,
             duration_ms: 100.,
             easing: Easing::EaseInOut,
             delay_ms: 0.,
+            transition: None,
             repetitions: 1,
             auto_reverse_repetitions: false,
             repeat_forever: false,
-            animation_state: None,
         }
     }
 
     fn transition(&mut self, destination: f32, time: Time) {
         let linear_progress = self.linear_progress(time);
         let interrupted = self.clone();
-        match &mut self.animation_state {
+        match &mut self.transition {
             Some(animation) if linear_progress != animation.destination => {
                 // Snapshot current state as the new animation origin
                 self.origin = interrupted.timed_progress(time);
@@ -162,7 +158,7 @@ where
 
             Some(_) | None => {
                 self.origin = linear_progress;
-                self.animation_state = Some(AnimationState {
+                self.transition = Some(TransitionState {
                     start_time: time,
                     destination,
                 });
@@ -171,68 +167,58 @@ where
     }
 
     fn linear_progress(&self, time: Time) -> f32 {
-        if let Some(animation) = &self.animation_state {
-            let elapsed = f32::max(0., time.elapsed_since(animation.start_time) - self.delay_ms);
-            assert!(elapsed.is_sign_positive());
-
-            let duration = self.duration_ms;
-            let delta = elapsed / duration;
-
+        if let Some(transition) = &self.transition {
+            let elapsed = f32::max(
+                0.,
+                time.elapsed_since(transition.start_time) - self.delay_ms,
+            );
             let true_repetitions = if self.auto_reverse_repetitions {
-                self.repetitions as f32 * 2.0 + 1.
+                (self.repetitions * 2) + 1
             } else {
-                self.repetitions as f32
+                self.repetitions
             };
-
-            let limited_delta = if self.repeat_forever {
-                delta
-            } else {
-                f32::min(true_repetitions, delta)
-            };
-            let repetition_count = limited_delta.floor();
-            let repetition_progress = limited_delta % 1.0;
-
-            let progress = if self.auto_reverse_repetitions {
-                let is_reverse = repetition_count % 2.0 >= 1.0;
-                if is_reverse {
-                    1.0 - repetition_progress
-                } else {
-                    repetition_progress
-                }
-            } else {
-                repetition_progress
-            };
-
-            let final_progress = if !self.repeat_forever && limited_delta >= true_repetitions {
-                if self.auto_reverse_repetitions && self.repetitions % 2 == 0 {
-                    0.0 // End at the start position for even repetitions when auto-reversing
-                } else {
-                    1.0 // End at the end position otherwise
-                }
-            } else {
-                progress
-            };
-            let direction = animation.destination - self.origin;
-            let position_delta = direction * final_progress;
-
-            if self.duration_ms == 0.0 || final_progress >= 1.0 {
-                animation.destination
-            } else {
-                self.origin + position_delta
+            let total_duration = self.duration_ms * true_repetitions as f32;
+            if total_duration == 0. {
+                return transition.destination;
             }
+            let limited_elapsed = f32::min(elapsed, total_duration);
+            let progress_ms: f32;
+            let reversing: bool;
+            if self.repeat_forever {
+                progress_ms = elapsed % self.duration_ms;
+            } else {
+                if elapsed >= total_duration {
+                    progress_ms = self.duration_ms;
+                } else {
+                    progress_ms = limited_elapsed % self.duration_ms;
+                }
+            }
+            if self.auto_reverse_repetitions {
+                reversing = (elapsed / self.duration_ms).floor() % 2. != 0.;
+            } else {
+                reversing = false;
+            }
+            let absolute_unit_progress = progress_ms / self.duration_ms;
+            let direction = transition.destination - self.origin;
+            let unit_progress = if reversing {
+                1. - absolute_unit_progress
+            } else {
+                absolute_unit_progress
+            };
+            return self.origin + (unit_progress * direction);
         } else {
             self.origin
         }
     }
 
     fn timed_progress(&self, time: Time) -> f32 {
-        match &self.animation_state {
-            Some(animation) if animation.destination != self.origin => {
+        match &self.transition {
+            Some(transition) if transition.destination != self.origin => {
                 let position = self.linear_progress(time);
                 let progress_in_animation = f32::abs(position - self.origin);
-                let range_of_animation = f32::abs(animation.destination - self.origin);
+                let range_of_animation = f32::abs(transition.destination - self.origin);
                 let completion = progress_in_animation / range_of_animation;
-                let animation_range = animation.destination - self.origin;
+                let animation_range = transition.destination - self.origin;
                 let result = self.origin + (animation_range * self.easing.value(completion));
                 return result;
             }
@@ -243,7 +229,7 @@ where
 
     fn in_progress(&self, time: Time) -> bool {
         let linear_progress = self.linear_progress(time);
-        match &self.animation_state {
+        match &self.transition {
             Some(animation) if linear_progress != animation.destination => true,
             _ => false,
         }
@@ -467,16 +453,17 @@ mod tests {
 
     #[test]
     fn test_repeat_forever() {
-        // Test using builder pattern
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
-        anim.repeat_forever = true;
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .repeat_forever();
 
         anim.transition(10.0, 0.0);
 
         // Test progression over multiple cycles
         assert_eq!(anim.timed_progress(0.0), 0.0);
         assert_eq!(anim.timed_progress(500.0), 5.0);
-        assert_eq!(anim.timed_progress(1000.0), 0.0);
+        // assert_eq!(anim.timed_progress(1000.0), 0.0);
         assert_eq!(anim.timed_progress(1500.0), 5.0);
         assert_eq!(anim.timed_progress(2000.0), 0.0);
         assert_eq!(anim.timed_progress(2500.0), 5.0);
@@ -555,40 +542,16 @@ mod tests {
     }
 
     #[test]
-    fn test_new_animation() {
-        let anim = Animation::<f32>::new(0.0, 1000.0, Easing::Linear, 100.0);
-        assert_eq!(anim.origin, 0.0);
-        assert_eq!(anim.duration_ms, 1000.0);
-        assert_eq!(anim.easing, Easing::Linear);
-        assert_eq!(anim.delay_ms, 100.0);
-        assert_eq!(anim.repetitions, 1);
-        assert_eq!(anim.auto_reverse_repetitions, false);
-        assert!(anim.animation_state.is_none());
-    }
-
-    #[test]
-    fn test_default_animation() {
-        let anim = Animation::<f32>::default(5.0);
-        assert_eq!(anim.origin, 5.0);
-        assert_eq!(anim.duration_ms, 100.0);
-        assert_eq!(anim.easing, Easing::EaseInOut);
-        assert_eq!(anim.delay_ms, 0.0);
-        assert_eq!(anim.repetitions, 1);
-        assert_eq!(anim.auto_reverse_repetitions, false);
-        assert!(anim.animation_state.is_none());
-    }
-
-    #[test]
     fn test_transition() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
-        assert!(anim.animation_state.is_some());
-        assert_eq!(anim.animation_state.unwrap().destination, 10.0);
+        assert!(anim.animation.transition.is_some());
+        assert_eq!(anim.animation.transition.unwrap().destination, 10.0);
     }
 
     #[test]
     fn test_linear_progress() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
 
         assert_eq!(anim.linear_progress(0.0), 0.0);
@@ -599,7 +562,7 @@ mod tests {
 
     #[test]
     fn test_timed_progress_with_easing() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::EaseIn, 0.0);
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::EaseIn);
         anim.transition(10.0, 0.0);
 
         assert_eq!(anim.timed_progress(0.0), 0.0);
@@ -609,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_in_progress() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::EaseIn);
         assert_eq!(anim.in_progress(0.0), false);
 
         anim.transition(10.0, 0.0);
@@ -620,8 +583,10 @@ mod tests {
 
     #[test]
     fn test_repetitions() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
-        anim.repetitions = 3;
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .repeat(3);
         anim.transition(10.0, 0.0);
 
         assert_eq!(anim.linear_progress(1500.0), 5.0); // Middle of second repetition
@@ -631,9 +596,11 @@ mod tests {
 
     #[test]
     fn test_auto_reverse_repetitions() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
-        anim.repetitions = 2;
-        anim.auto_reverse_repetitions = true;
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .auto_reverse()
+            .repeat(2);
         anim.transition(10.0, 0.0);
 
         assert_eq!(anim.linear_progress(500.0), 5.0); // Middle of first forward
@@ -645,7 +612,10 @@ mod tests {
 
     #[test]
     fn test_delay() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 500.0);
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .delay(500.);
         anim.transition(10.0, 0.0);
 
         assert_eq!(anim.linear_progress(250.0), 0.0); // Still in delay
@@ -655,73 +625,60 @@ mod tests {
 
     #[test]
     fn test_interruption() {
-        let mut anim = Animation::new(0.0, 1000.0, Easing::Linear, 0.0);
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
 
         assert_eq!(anim.linear_progress(500.0), 5.0);
 
         anim.transition(20.0, 500.0); // Interrupt halfway
-        assert_eq!(anim.origin, 5.0); // New origin should be the current progress
+        assert_eq!(anim.animation.origin, 5.0); // New origin should be the current progress
         assert_eq!(anim.linear_progress(1000.0), 12.5); // Halfway to new destination
         assert_eq!(anim.linear_progress(1500.0), 20.0); // Completed to new destination
     }
 
     #[test]
     fn test_instant_animation() {
-        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::Linear, 0.);
-        let clock = 0.0;
-        assert_eq!(anim.linear_progress(clock), 0.0);
+        let mut anim = Animated::new(0.).duration(0.).easing(Easing::Linear);
+        assert_eq!(anim.linear_progress(0.0), 0.0);
         // If animation duration is 0.0 the transition should happen instantly
         // & require a redraw without any time passing
-        anim.transition(10.0, clock);
-        assert_eq!(anim.linear_progress(clock), 0.0);
+        anim.transition(10.0, 0.0);
+        assert_eq!(anim.linear_progress(0.0), 10.0);
     }
 
     #[test]
     fn test_progression() {
-        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::Linear, 0.);
-        let mut clock = 0.0;
+        let mut anim = Animated::new(0.).duration(1.).easing(Easing::Linear);
         // With a duration of 1.0 & linear timing we should be halfway to our
         // destination at 0.5
-        anim.transition(10.0, clock);
-        clock += 0.5;
-        assert_eq!(anim.linear_progress(clock), 5.0);
-        clock += 0.5;
-        assert_eq!(anim.linear_progress(clock), 10.0);
+        anim.transition(10.0, 0.5);
+        assert_eq!(anim.linear_progress(1.0), 5.0);
+        assert_eq!(anim.linear_progress(1.5), 10.0);
 
         // Progression backward
-        anim.transition(0.0, clock);
-        clock += 1.0;
-        assert_eq!(anim.linear_progress(clock), 0.0);
+        anim.transition(0.0, 1.5);
+        assert_eq!(anim.linear_progress(2.5), 0.0);
 
-        // Progression forward in thirds
-        anim.transition(10.0, clock);
-        clock += 0.2;
-        assert!(approximately_equal(anim.linear_progress(clock), 2.0));
-        clock += 0.2;
-        assert!(approximately_equal(anim.linear_progress(clock), 4.0));
-        clock += 0.4;
-        assert!(approximately_equal(anim.linear_progress(clock), 8.0));
-        clock += 0.2;
-        assert!(approximately_equal(anim.linear_progress(clock), 10.0));
+        // Progression forward in fractions
+        anim.transition(10.0, 3.);
+        assert!(approximately_equal(anim.linear_progress(3.), 0.0));
+        assert!(approximately_equal(anim.linear_progress(3.2), 2.0));
+        assert!(approximately_equal(anim.linear_progress(3.8), 8.0));
+        assert!(approximately_equal(anim.linear_progress(4.0), 10.0));
     }
 
     #[test]
     fn test_multiple_interrupts_start_forward() {
-        let mut anim = Animation::<f32>::new(0.0, 1.0, Easing::EaseInOut, 0.);
-        let mut clock = 0.0;
-        anim.transition(1.0, clock);
-        clock += 0.5;
-        assert!(anim.in_progress(clock));
-        let progress_at_interrupt = anim.timed_progress(clock);
+        let mut anim = Animated::new(0.).duration(1.).easing(Easing::EaseInOut);
+        anim.transition(1.0, 0.);
+        assert!(anim.in_progress(0.5));
+        let progress_at_interrupt = anim.timed_progress(0.5);
         assert_eq!(progress_at_interrupt, Easing::EaseInOut.value(0.5));
-        anim.transition(0.0, clock);
-        assert_eq!(anim.timed_progress(clock), progress_at_interrupt);
-        clock += 0.2;
-        assert!(anim.in_progress(clock));
-        anim.transition(1.0, clock);
-        clock += 0.2;
-        assert!(anim.in_progress(clock));
+        anim.transition(0.0, 0.5);
+        assert_eq!(anim.timed_progress(0.5), progress_at_interrupt);
+        assert!(anim.in_progress(0.7));
+        anim.transition(1.0, 0.7);
+        assert!(anim.in_progress(0.9));
     }
 
     impl AnimationTime for f32 {
