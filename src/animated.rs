@@ -97,7 +97,7 @@ where
     where
         I: Interpolable,
     {
-        from.interpolated(to, self.animation.timed_progress(time))
+        from.interpolated(to, self.animation.eased_progress(time))
     }
     // Just for nicer testing
     #[allow(dead_code)]
@@ -105,8 +105,8 @@ where
         self.animation.linear_progress(time)
     }
     #[allow(dead_code)]
-    fn timed_progress(&self, time: Time) -> f32 {
-        self.animation.timed_progress(time)
+    fn eased_progress(&self, time: Time) -> f32 {
+        self.animation.eased_progress(time)
     }
 }
 
@@ -151,7 +151,7 @@ where
         match &mut self.transition {
             Some(animation) if linear_progress != animation.destination => {
                 // Snapshot current state as the new animation origin
-                self.origin = interrupted.timed_progress(time);
+                self.origin = interrupted.eased_progress(time);
                 animation.destination = destination;
                 animation.start_time = time;
             }
@@ -211,7 +211,7 @@ where
         }
     }
 
-    fn timed_progress(&self, time: Time) -> f32 {
+    fn eased_progress(&self, time: Time) -> f32 {
         match &self.transition {
             Some(transition) if transition.destination != self.origin => {
                 let position = self.linear_progress(time);
@@ -461,12 +461,12 @@ mod tests {
         anim.transition(10.0, 0.0);
 
         // Test progression over multiple cycles
-        assert_eq!(anim.timed_progress(0.0), 0.0);
-        assert_eq!(anim.timed_progress(500.0), 5.0);
-        // assert_eq!(anim.timed_progress(1000.0), 0.0);
-        assert_eq!(anim.timed_progress(1500.0), 5.0);
-        assert_eq!(anim.timed_progress(2000.0), 0.0);
-        assert_eq!(anim.timed_progress(2500.0), 5.0);
+        assert_eq!(anim.eased_progress(0.0), 0.0);
+        assert_eq!(anim.eased_progress(500.0), 5.0);
+        assert_eq!(anim.eased_progress(1000.0), 0.0);
+        assert_eq!(anim.eased_progress(1500.0), 5.0);
+        assert_eq!(anim.eased_progress(2000.0), 0.0);
+        assert_eq!(anim.eased_progress(2500.0), 5.0);
 
         // Ensure animation is still in progress after multiple cycles
         assert!(anim.in_progress(10000.0));
@@ -561,13 +561,13 @@ mod tests {
     }
 
     #[test]
-    fn test_timed_progress_with_easing() {
+    fn test_eased_progress_with_easing() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::EaseIn);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.timed_progress(0.0), 0.0);
-        assert!(anim.timed_progress(500.0) < 5.0); // Should be less than linear due to ease-in
-        assert_eq!(anim.timed_progress(1000.0), 10.0);
+        assert_eq!(anim.eased_progress(0.0), 0.0);
+        assert!(anim.eased_progress(500.0) < 5.0); // Should be less than linear due to ease-in
+        assert_eq!(anim.eased_progress(1000.0), 10.0);
     }
 
     #[test]
@@ -672,10 +672,10 @@ mod tests {
         let mut anim = Animated::new(0.).duration(1.).easing(Easing::EaseInOut);
         anim.transition(1.0, 0.);
         assert!(anim.in_progress(0.5));
-        let progress_at_interrupt = anim.timed_progress(0.5);
+        let progress_at_interrupt = anim.eased_progress(0.5);
         assert_eq!(progress_at_interrupt, Easing::EaseInOut.value(0.5));
         anim.transition(0.0, 0.5);
-        assert_eq!(anim.timed_progress(0.5), progress_at_interrupt);
+        assert_eq!(anim.eased_progress(0.5), progress_at_interrupt);
         assert!(anim.in_progress(0.7));
         anim.transition(1.0, 0.7);
         assert!(anim.in_progress(0.9));
