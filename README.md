@@ -10,7 +10,7 @@ This library only implements animations & would be most useful along with a GUI 
 
 ## Getting Started
 
-### Create
+### Define
 
 Embed the state you want to animate in an `Animated` struct.
 
