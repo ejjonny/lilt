@@ -4,6 +4,8 @@
 
 ![rust](https://github.com/ejjonny/lilt/actions/workflows/rust.yml/badge.svg)
 [![Crates.io](https://img.shields.io/crates/v/lilt.svg)](https://crates.io/crates/lilt)
+[![Downloads](https://img.shields.io/crates/d/lilt.svg)](https://crates.io/crates/lilt)
+[![License](https://img.shields.io/crates/l/lilt.svg)](https://github.com/lilt/blob/master/LICENSE)
 
 A simple, dependency free library for running interruptable, transition based animations as a function of time.
 
