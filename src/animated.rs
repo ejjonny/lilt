@@ -51,37 +51,37 @@ where
     /// Specifies the duration of the animation in milliseconds
     pub fn duration(mut self, duration_ms: f32) -> Self {
         self.animation.duration_ms = duration_ms;
-        return self;
+        self
     }
     /// Specifies the easing with which to animate transitions
     pub fn easing(mut self, easing: Easing) -> Self {
         self.animation.easing = easing;
-        return self;
+        self
     }
     /// Delays the animation by the given number of milliseconds
     pub fn delay(mut self, delay_ms: f32) -> Self {
         self.animation.delay_ms = delay_ms;
-        return self;
+        self
     }
     /// Repeats animations the specified number of times
     pub fn repeat(mut self, count: u32) -> Self {
         self.animation.repetitions = count;
-        return self;
+        self
     }
     /// Repeats transitions forever
     pub fn repeat_forever(mut self) -> Self {
         self.animation.repeat_forever = true;
-        return self;
+        self
     }
     /// Automatically play repetitions in reverse after they complete
     pub fn auto_reverse(mut self) -> Self {
         self.animation.auto_reverse_repetitions = true;
-        return self;
+        self
     }
     /// Begins a transition as soon as the animation is created
     pub fn auto_start(mut self, new_value: T, at: Time) -> Self {
         self.transition(new_value, at);
-        return self;
+        self
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
@@ -147,7 +147,7 @@ where
 
     fn transition(&mut self, destination: f32, time: Time) {
         let linear_progress = self.linear_progress(time);
-        let interrupted = self.clone();
+        let interrupted = *self;
         match &mut self.transition {
             Some(animation) if linear_progress != animation.destination => {
                 // Snapshot current state as the new animation origin
@@ -183,21 +183,18 @@ where
             }
             let limited_elapsed = f32::min(elapsed, total_duration);
             let progress_ms: f32;
-            let reversing: bool;
             if self.repeat_forever {
                 progress_ms = elapsed % self.duration_ms;
+            } else if elapsed >= total_duration {
+                progress_ms = self.duration_ms;
             } else {
-                if elapsed >= total_duration {
-                    progress_ms = self.duration_ms;
-                } else {
-                    progress_ms = limited_elapsed % self.duration_ms;
-                }
+                progress_ms = limited_elapsed % self.duration_ms;
             }
-            if self.auto_reverse_repetitions {
-                reversing = (elapsed / self.duration_ms).floor() % 2. != 0.;
+            let reversing = if self.auto_reverse_repetitions {
+                (elapsed / self.duration_ms).floor() % 2. != 0.
             } else {
-                reversing = false;
-            }
+                false
+            };
             let absolute_unit_progress = progress_ms / self.duration_ms;
             let direction = transition.destination - self.origin;
             let unit_progress = if reversing {
@@ -205,7 +202,7 @@ where
             } else {
                 absolute_unit_progress
             };
-            return self.origin + (unit_progress * direction);
+            self.origin + (unit_progress * direction)
         } else {
             self.origin
         }
@@ -219,25 +216,23 @@ where
                 let range_of_animation = f32::abs(transition.destination - self.origin);
                 let completion = progress_in_animation / range_of_animation;
                 let animation_range = transition.destination - self.origin;
-                let result = self.origin + (animation_range * self.easing.value(completion));
-                return result;
+
+                self.origin + (animation_range * self.easing.value(completion))
             }
-            Some(animation) => animation.destination.clone(),
-            None => self.origin.clone(),
+            Some(animation) => animation.destination,
+            None => self.origin,
         }
     }
 
     fn in_progress(&self, time: Time) -> bool {
         let linear_progress = self.linear_progress(time);
-        match &self.transition {
-            Some(animation) if linear_progress != animation.destination => true,
-            _ => false,
-        }
+        matches!(&self.transition, Some(animation) if linear_progress != animation.destination)
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
 pub enum Easing {
+    #[default]
     Linear,
     EaseIn,
     EaseOut,
@@ -270,12 +265,6 @@ pub enum Easing {
     EaseOutBounce,
     EaseInOutBounce,
     Custom(fn(f32) -> f32),
-}
-
-impl Default for Easing {
-    fn default() -> Self {
-        Easing::Linear
-    }
 }
 
 impl Easing {
@@ -573,12 +562,12 @@ mod tests {
     #[test]
     fn test_in_progress() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::EaseIn);
-        assert_eq!(anim.in_progress(0.0), false);
+        assert!(!anim.in_progress(0.0));
 
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.in_progress(0.0), true);
-        assert_eq!(anim.in_progress(500.0), true);
-        assert_eq!(anim.in_progress(1000.0), false);
+        assert!(anim.in_progress(0.0));
+        assert!(anim.in_progress(500.0));
+        assert!(!anim.in_progress(1000.0));
     }
 
     #[test]
