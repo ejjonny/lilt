@@ -2,6 +2,11 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// Wraps state to enable interpolated transitions
 ///
 /// # Example
+///
+/// ```rust
+/// use lilt::Animated;
+/// use iced::time::Instant;
+///
 /// struct MyViewState {
 ///     animated_toggle: Animated<bool, Instant>,
 /// }
@@ -16,6 +21,7 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 ///     .transition(!state.animated_toggle.value, now);
 /// // Animate
 /// let animated_width = state.animated_toggle.animate(0., 100., now);
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
@@ -85,7 +91,13 @@ where
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
-        self.animation.transition(new_value.float_value(), at);
+        self.animation.transition(new_value.float_value(), at, None);
+        self.value = new_value
+    }
+    /// Updates the wrapped states & begins an animation with a different duration, preserving current progress
+    pub fn transition_with_new_duration(&mut self, new_value: T, at: Time, new_duration_ms: f32) {
+        self.animation
+            .transition(new_value.float_value(), at, Some(new_duration_ms));
         self.value = new_value
     }
     /// Returns whether the animation is complete, given the current time
@@ -145,13 +157,25 @@ where
         }
     }
 
-    fn transition(&mut self, destination: f32, time: Time) {
+    fn transition(&mut self, destination: f32, time: Time, new_duration_ms: Option<f32>) {
         let linear_progress = self.linear_progress(time);
         let interrupted = *self;
         match &mut self.transition {
             Some(animation) if linear_progress != animation.destination => {
-                // Snapshot current state as the new animation origin
-                self.origin = interrupted.eased_progress(time);
+                // Translate the origin when the transition duration changes
+                if let Some(new_duration_ms) = new_duration_ms {
+                    let start_time_offset = (linear_progress
+                        * self.duration_ms
+                        * (new_duration_ms / self.duration_ms - 1.0))
+                        .round();
+                    let mut translated_start_time = time;
+                    translated_start_time.sub_ms(start_time_offset as u64);
+                    self.origin = interrupted.eased_progress(translated_start_time);
+                    self.duration_ms = new_duration_ms;
+                } else {
+                    // Snapshot current state as the new animation origin
+                    self.origin = interrupted.eased_progress(time);
+                }
                 animation.destination = destination;
                 animation.start_time = time;
             }
@@ -162,6 +186,9 @@ where
                     start_time: time,
                     destination,
                 });
+                if let Some(new_duration_ms) = new_duration_ms {
+                    self.duration_ms = new_duration_ms
+                }
             }
         }
     }
@@ -673,6 +700,14 @@ mod tests {
     impl AnimationTime for f32 {
         fn elapsed_since(self, time: Self) -> f32 {
             self - time
+        }
+
+        fn sub_ms(&mut self, duration_ms: u64) {
+            *self -= duration_ms as f32
+        }
+
+        fn add_ms(&mut self, duration_ms: u64) {
+            *self += duration_ms as f32
         }
     }
 
