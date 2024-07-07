@@ -100,6 +100,13 @@ where
             .transition(new_value.float_value(), at, Some(new_duration_ms));
         self.value = new_value
     }
+    /// Updates the wrapped states and set the animation at its very end
+    pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
+        let mut at = at;
+        at.sub_ms(self.animation.duration_ms as u64);
+        self.animation.transition(new_value.float_value(), at, None);
+        self.value = new_value
+    }
     /// Returns whether the animation is complete, given the current time
     pub fn in_progress(&self, time: Time) -> bool {
         self.animation.in_progress(time)
