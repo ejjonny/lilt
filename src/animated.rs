@@ -823,6 +823,17 @@ mod tests {
         assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
     }
 
+    #[test]
+    fn test_transition_instantaneous() {
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim.transition_instantaneous(10., 0.);
+        assert_eq!(anim.linear_progress(0.), 10.);
+        assert_eq!(anim.linear_progress(1.), 10.);
+        anim.transition_instantaneous(0., 1.);
+        assert_eq!(anim.linear_progress(1.), 0.);
+        assert_eq!(anim.linear_progress(2.), 0.);
+    }
+
     impl AnimationTime for f32 {
         fn elapsed_since(self, time: Self) -> f32 {
             self - time
