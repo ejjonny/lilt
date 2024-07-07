@@ -7,5 +7,5 @@ edition = "2021"
 iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
     "canvas",
 ] }
-iced-animator = { path = "../../" }
+lilt = { path = "../../" }
 iced_futures = "0.12.0"
