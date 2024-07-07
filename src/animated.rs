@@ -198,8 +198,7 @@ where
             self.origin = destination;
             return;
         }
-        let interrupted = self.clone();
-        // let in_progress = linear_progress != animation.destination;
+        let interrupted = *self;
         match &mut self.transition {
             Some(transition) if interrupted.linear_progress(time) != transition.destination => {
                 self.origin = interrupted.eased_progress(time);
@@ -240,17 +239,17 @@ where
             } else {
                 elapsed % total_duration - first_duration
             };
-            return if first_animation {
+            if first_animation {
                 (self.settings, Some(current_elapsed), false)
             } else {
                 (asymmetric_settings, Some(current_elapsed), true)
-            };
+            }
         } else {
-            return if transition.destination > self.origin {
+            if transition.destination > self.origin {
                 (self.settings, None, false)
             } else {
                 (asymmetric_settings, None, true)
-            };
+            }
         }
     }
 
