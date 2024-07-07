@@ -32,13 +32,9 @@ impl Example {
     fn new() -> Self {
         Self {
             animated_toggle: Animated::new(false)
-                .duration(1000.)
+                .duration(100.)
                 .easing(Easing::EaseOut)
-                .asymmetrical(
-                    Animated::new(false)
-                        .duration(1500.)
-                        .easing(Easing::EaseInCirc),
-                ),
+                .asymmetric_duration(5000.),
         }
     }
 

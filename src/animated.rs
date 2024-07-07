@@ -89,8 +89,28 @@ where
         self.transition(new_value, at);
         self
     }
-    pub fn asymmetrical(mut self, counterpart: Self) -> Self {
-        self.animation.asymmetric_settings = Some(counterpart.animation.settings);
+    /// Applies a different duration while animating backwards
+    pub fn asymmetric_duration(mut self, duration_ms: f32) -> Self {
+        self.animation.asymmetric_settings = Some(AnimationSettings {
+            duration_ms,
+            easing: self
+                .animation
+                .asymmetric_settings
+                .map(|a| a.easing)
+                .unwrap_or(self.animation.settings.easing),
+        });
+        self
+    }
+    /// Applies a different easing while animating backwards
+    pub fn asymmetric_easing(mut self, easing: Easing) -> Self {
+        self.animation.asymmetric_settings = Some(AnimationSettings {
+            duration_ms: self
+                .animation
+                .asymmetric_settings
+                .map(|a| a.duration_ms)
+                .unwrap_or(self.animation.settings.duration_ms),
+            easing,
+        });
         self
     }
     /// Updates the wrapped state & begins an animation
@@ -161,7 +181,7 @@ where
             origin,
             settings: AnimationSettings {
                 duration_ms: 100.,
-                easing: Easing::EaseOut,
+                easing: Easing::EaseInOut,
             },
             asymmetric_settings: None,
             delay_ms: 0.,
@@ -178,9 +198,9 @@ where
             return;
         }
         let interrupted = self.clone();
-        let in_progress = self.in_progress(time);
+        // let in_progress = linear_progress != animation.destination;
         match &mut self.transition {
-            Some(transition) if in_progress => {
+            Some(transition) if interrupted.linear_progress(time) != transition.destination => {
                 self.origin = interrupted.eased_progress(time);
                 transition.destination = destination;
                 transition.start_time = time;
@@ -195,25 +215,51 @@ where
         };
     }
 
-    fn current_settings(&self) -> AnimationSettings {
-        if let Some(transition) = &self.transition {
-            if transition.destination > self.origin {
-                self.settings
+    fn current_settings(&self, time: Time) -> (AnimationSettings, Option<f32>, bool) {
+        let Some(transition) = &self.transition else {
+            return (self.settings, None, false);
+        };
+        let Some(asymmetric_settings) = self.asymmetric_settings else {
+            return (self.settings, None, false);
+        };
+        if self.auto_reverse_repetitions {
+            let elapsed = f32::max(
+                0.,
+                time.elapsed_since(transition.start_time) - self.delay_ms,
+            );
+            let first_duration = if transition.destination > self.origin {
+                self.settings.duration_ms
             } else {
-                self.asymmetric_settings.unwrap_or(self.settings)
-            }
+                asymmetric_settings.duration_ms
+            };
+            let total_duration = self.settings.duration_ms + asymmetric_settings.duration_ms;
+            let first_animation = elapsed % total_duration - first_duration < 0.;
+            let current_elapsed = if first_animation {
+                elapsed % total_duration
+            } else {
+                elapsed % total_duration - first_duration
+            };
+            return if first_animation {
+                (self.settings, Some(current_elapsed), false)
+            } else {
+                (asymmetric_settings, Some(current_elapsed), true)
+            };
         } else {
-            self.settings
+            return if transition.destination > self.origin {
+                (self.settings, None, false)
+            } else {
+                (asymmetric_settings, None, true)
+            };
         }
     }
 
     fn linear_progress(&self, time: Time) -> f32 {
         if let Some(transition) = &self.transition {
-            let settings = self.current_settings();
-            let elapsed = f32::max(
+            let (settings, elapsed, reversing) = self.current_settings(time);
+            let elapsed = elapsed.unwrap_or(f32::max(
                 0.,
                 time.elapsed_since(transition.start_time) - self.delay_ms,
-            );
+            ));
             let true_repetitions = if self.auto_reverse_repetitions {
                 (self.repetitions * 2) + 1
             } else {
@@ -232,15 +278,10 @@ where
             } else {
                 progress_ms = limited_elapsed % settings.duration_ms;
             }
-            let reversing = if self.auto_reverse_repetitions {
-                (elapsed / settings.duration_ms).floor() % 2. != 0.
-            } else {
-                false
-            };
             let absolute_unit_progress = progress_ms / settings.duration_ms;
             let direction = transition.destination - self.origin;
-            let unit_progress = if reversing {
-                1. - absolute_unit_progress
+            let unit_progress = if reversing && self.auto_reverse_repetitions {
+                1. - absolute_unit_progress // Reversal must be represented in the context of the forward animation in this case
             } else {
                 absolute_unit_progress
             };
@@ -253,7 +294,7 @@ where
     fn eased_progress(&self, time: Time) -> f32 {
         match &self.transition {
             Some(transition) if transition.destination != self.origin => {
-                let settings = self.current_settings();
+                let (settings, _, _) = self.current_settings(time);
                 let position = self.linear_progress(time);
                 let progress_in_animation = f32::abs(position - self.origin);
                 let range_of_animation = f32::abs(transition.destination - self.origin);
@@ -711,6 +752,74 @@ mod tests {
         assert!(anim.in_progress(0.7));
         anim.transition(1.0, 0.7);
         assert!(anim.in_progress(0.9));
+    }
+
+    #[test]
+    fn test_asymmetric_auto_reversal() {
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .asymmetric_duration(2000.)
+            .asymmetric_easing(Easing::EaseInOut)
+            .auto_reverse()
+            .repeat(1);
+
+        anim.transition(10.0, 0.0);
+
+        // Forward animation (using normal settings)
+        assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
+        assert_eq!(anim.linear_progress(1000.0), 10.); // 100% forward
+
+        // Backward animation (using asymmetric settings)
+        assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
+        assert_eq!(anim.linear_progress(2000.0), 5.0); // 50% backwards
+        assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
+        assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
+        assert!(approximately_equal(
+            anim.eased_progress(2000.0),
+            10.0 - Easing::EaseInOut.value(0.5) * 10.0
+        )); // 50% of backward with EaseInOut
+
+        // Completion repetition
+        assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
+        assert_eq!(anim.linear_progress(3500.0), 5.0); // 50% second forward
+        assert_eq!(anim.linear_progress(3750.0), 7.5); // 75% second forward
+        assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
+    }
+
+    #[test]
+    fn test_asymmetric_single() {
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .asymmetric_duration(2000.)
+            .asymmetric_easing(Easing::EaseInOut);
+
+        anim.transition(10.0, 0.0);
+
+        // Forward animation (using normal settings)
+        assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
+        assert_eq!(anim.linear_progress(1000.0), 10.); // 100% forward
+
+        anim.transition(0.0, 1000.0);
+
+        // Backward animation (using asymmetric settings)
+        assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
+        assert_eq!(anim.linear_progress(2000.0), 5.0); // 50% backwards
+        assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
+        assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
+        assert!(approximately_equal(
+            anim.eased_progress(2000.0),
+            10.0 - Easing::EaseInOut.value(0.5) * 10.0
+        )); // 50% of backward with EaseInOut
+
+        anim.transition(10.0, 3000.0);
+
+        // Completion repetition
+        assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
+        assert_eq!(anim.linear_progress(3500.0), 5.0); // 50% second forward
+        assert_eq!(anim.linear_progress(3750.0), 7.5); // 75% second forward
+        assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
     }
 
     impl AnimationTime for f32 {

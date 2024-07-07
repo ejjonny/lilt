@@ -40,7 +40,7 @@ impl Default for Example {
 impl Example {
     fn new() -> Self {
         let time = std::time::Instant::now();
-        let left: Vec<Animated<bool, Instant>> = (0..50)
+        let left: Vec<Animated<bool, Instant>> = (0..0)
             .map(|i| {
                 Animated::new(false)
                     .duration(800.)
@@ -51,13 +51,15 @@ impl Example {
             })
             .rev()
             .collect();
-        let right: Vec<Animated<bool, Instant>> = (0..50)
+        let right: Vec<Animated<bool, Instant>> = (0..1)
             .map(|i| {
                 Animated::new(false)
-                    .duration(800.)
-                    .easing(Easing::EaseInOutBounce)
+                    .duration(200.)
+                    .easing(Easing::Linear)
                     .delay(i as f32 * 30.)
                     .repeat_forever()
+                    .auto_reverse()
+                    .asymmetric_duration(2000.)
                     .auto_start(true, time)
             })
             .collect();
@@ -126,24 +128,24 @@ impl Example {
                     )
                     .push(vertical_space()),
             )
-            .push(
-                Column::new()
-                    .push(vertical_space())
-                    .push(
-                        Row::new()
-                            .push(horizontal_space())
-                            .push(
-                                iced::widget::canvas(Spinner {
-                                    trim: self.spinner_trim.animate(0.5, 0., time),
-                                    rotation: self.spinner_rotation.animate(0., 1., time),
-                                })
-                                .height(Length::Fixed(250.))
-                                .width(Length::Fixed(250.)),
-                            )
-                            .push(horizontal_space()),
-                    )
-                    .push(vertical_space()),
-            )
+            // .push(
+            //     Column::new()
+            //         .push(vertical_space())
+            //         .push(
+            //             Row::new()
+            //                 .push(horizontal_space())
+            //                 .push(
+            //                     iced::widget::canvas(Spinner {
+            //                         trim: self.spinner_trim.animate(0.5, 0., time),
+            //                         rotation: self.spinner_rotation.animate(0., 1., time),
+            //                     })
+            //                     .height(Length::Fixed(250.))
+            //                     .width(Length::Fixed(250.)),
+            //                 )
+            //                 .push(horizontal_space()),
+            //         )
+            //         .push(vertical_space()),
+            // )
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
