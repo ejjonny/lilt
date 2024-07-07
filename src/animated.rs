@@ -120,7 +120,8 @@ where
             .transition(new_value.float_value(), at, false);
         self.value = new_value
     }
-    /// Updates the wrapped states and set the animation at its very end
+    /// Updates the wrapped state & instantaneously completes an animation.
+    /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
         let mut at = at;
         at.sub_ms(self.animation.settings.duration_ms as u64);
