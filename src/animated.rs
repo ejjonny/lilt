@@ -89,7 +89,7 @@ where
         self.transition(new_value, at);
         self
     }
-    /// Applies a different duration while animating backwards
+    /// Applies an alternative duration while animating backwards
     pub fn asymmetric_duration(mut self, duration_ms: f32) -> Self {
         self.animation.asymmetric_settings = Some(AnimationSettings {
             duration_ms,
@@ -101,7 +101,7 @@ where
         });
         self
     }
-    /// Applies a different easing while animating backwards
+    /// Applies an alternative easing while animating backwards
     pub fn asymmetric_easing(mut self, easing: Easing) -> Self {
         self.animation.asymmetric_settings = Some(AnimationSettings {
             duration_ms: self
@@ -281,7 +281,8 @@ where
             let absolute_unit_progress = progress_ms / settings.duration_ms;
             let direction = transition.destination - self.origin;
             let unit_progress = if reversing && self.auto_reverse_repetitions {
-                1. - absolute_unit_progress // Reversal must be represented in the context of the forward animation in this case
+                // Reversal must be represented in the context of the forward animation in this case
+                1. - absolute_unit_progress
             } else {
                 absolute_unit_progress
             };
