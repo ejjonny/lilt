@@ -352,7 +352,7 @@ pub enum Easing {
 }
 
 impl Easing {
-    pub fn value(self, x: f32) -> f32 {
+    fn value(self, x: f32) -> f32 {
         let pi = std::f32::consts::PI;
         match self {
             Easing::Linear => x,
