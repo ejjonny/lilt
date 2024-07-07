@@ -70,6 +70,7 @@ where
         self
     }
     /// Repeats animations the specified number of times
+    /// Passing a repetition count of 1 plays the animation twice in total
     pub fn repeat(mut self, count: u32) -> Self {
         self.animation.repetitions = count;
         self
