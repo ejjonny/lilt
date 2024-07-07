@@ -31,7 +31,14 @@ impl Default for Example {
 impl Example {
     fn new() -> Self {
         Self {
-            animated_toggle: Animated::new(false).duration(300.).easing(Easing::EaseOut),
+            animated_toggle: Animated::new(false)
+                .duration(1000.)
+                .easing(Easing::EaseOut)
+                .asymmetrical(
+                    Animated::new(false)
+                        .duration(1500.)
+                        .easing(Easing::EaseInCirc),
+                ),
         }
     }
 
