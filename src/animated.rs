@@ -245,12 +245,10 @@ where
             } else {
                 (asymmetric_settings, Some(current_elapsed), true)
             }
+        } else if transition.destination > self.origin {
+            (self.settings, None, false)
         } else {
-            if transition.destination > self.origin {
-                (self.settings, None, false)
-            } else {
-                (asymmetric_settings, None, true)
-            }
+            (asymmetric_settings, None, true)
         }
     }
 
