@@ -1,25 +1,11 @@
 /// An interface for interacting with time.
 pub trait AnimationTime: Copy + std::fmt::Debug + Send {
     fn elapsed_since(self, time: Self) -> f32;
-    fn sub_ms(&mut self, duration_ms: u64);
-    fn add_ms(&mut self, duration_ms: u64);
 }
 
 impl AnimationTime for std::time::Instant {
     fn elapsed_since(self, time: Self) -> f32 {
         (self - time).as_millis() as f32
-    }
-
-    fn sub_ms(&mut self, duration_ms: u64) {
-        if let Some(instant) = self.checked_sub(std::time::Duration::from_millis(duration_ms)) {
-            *self = instant
-        }
-    }
-
-    fn add_ms(&mut self, duration_ms: u64) {
-        if let Some(instant) = self.checked_add(std::time::Duration::from_millis(duration_ms)) {
-            *self = instant
-        }
     }
 }
 /// Defines a float representation for arbitrary types

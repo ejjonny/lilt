@@ -123,8 +123,6 @@ where
     /// Updates the wrapped state & instantaneously completes an animation.
     /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
-        let mut at = at;
-        at.sub_ms(self.animation.settings.duration_ms as u64);
         self.animation.transition(new_value.float_value(), at, true);
         self.value = new_value
     }
@@ -830,14 +828,6 @@ mod tests {
     impl AnimationTime for f32 {
         fn elapsed_since(self, time: Self) -> f32 {
             self - time
-        }
-
-        fn sub_ms(&mut self, duration_ms: u64) {
-            *self -= duration_ms as f32
-        }
-
-        fn add_ms(&mut self, duration_ms: u64) {
-            *self += duration_ms as f32
         }
     }
 

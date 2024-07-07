@@ -54,12 +54,10 @@ impl Example {
         let right: Vec<Animated<bool, Instant>> = (0..50)
             .map(|i| {
                 Animated::new(false)
-                    .duration(200.)
-                    .easing(Easing::Linear)
+                    .duration(800.)
+                    .easing(Easing::EaseInOutBounce)
                     .delay(i as f32 * 30.)
                     .repeat_forever()
-                    .auto_reverse()
-                    .asymmetric_duration(2000.)
                     .auto_start(true, time)
             })
             .collect();
