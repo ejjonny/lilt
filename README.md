@@ -3,9 +3,10 @@
 <img src="https://github.com/ejjonny/lilt/assets/17223924/2c5c1971-f10e-4766-9252-0ff8194e3e5d" width="100%">
 
 ![rust](https://github.com/ejjonny/lilt/actions/workflows/rust.yml/badge.svg)
-[![Crates.io](https://img.shields.io/crates/v/lilt.svg)](https://crates.io/crates/lilt)
-[![Downloads](https://img.shields.io/crates/d/lilt.svg)](https://crates.io/crates/lilt)
-[![License](https://img.shields.io/crates/l/lilt.svg)](https://github.com/lilt/blob/master/LICENSE)
+[![coverage](https://codecov.io/github/ejjonny/lilt/main/graph/badge.svg?token=4XJNXRSQNX)](https://codecov.io/github/ejjonny/lilt)
+[![crates.io](https://img.shields.io/crates/v/lilt.svg)](https://crates.io/crates/lilt)
+[![downloads](https://img.shields.io/crates/d/lilt.svg)](https://crates.io/crates/lilt)
+[![license](https://img.shields.io/crates/l/lilt.svg)](https://github.com/lilt/blob/master/LICENSE)
 
 A simple, dependency free library for running interruptable, transition based animations as a function of time.
 
