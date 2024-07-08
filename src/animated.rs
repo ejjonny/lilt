@@ -209,6 +209,7 @@ where
     fn transition(&mut self, destination: f32, time: Time, instantaneous: bool) {
         if instantaneous {
             self.origin = destination;
+            self.transition = None;
             return;
         }
         let interrupted = *self;
@@ -837,6 +838,13 @@ mod tests {
         anim.transition_instantaneous(0., 1.);
         assert_eq!(anim.linear_progress(1.), 0.);
         assert_eq!(anim.linear_progress(2.), 0.);
+        anim.transition(10., 10.);
+        assert_eq!(anim.linear_progress(10.), 0.);
+        assert_eq!(anim.linear_progress(1010.), 10.);
+        anim.transition_instantaneous(0., 1010.);
+        assert_eq!(anim.linear_progress(1010.), 0.);
+        assert_eq!(anim.linear_progress(1011.), 0.);
+        assert_eq!(anim.linear_progress(1020.), 0.);
     }
 
     impl AnimationTime for f32 {
