@@ -209,6 +209,7 @@ where
     fn transition(&mut self, destination: f32, time: Time, instantaneous: bool) {
         if instantaneous {
             self.origin = destination;
+            self.transition = None;
             return;
         }
         let interrupted = *self;
