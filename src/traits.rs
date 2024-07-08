@@ -16,6 +16,7 @@ impl AnimationTime for std::time::Instant {
 /// that can be interpolated towards.
 pub trait FloatRepresentable {
     fn float_value(&self) -> f32;
+    fn value(float: f32) -> Self;
 }
 
 impl FloatRepresentable for bool {
@@ -26,11 +27,17 @@ impl FloatRepresentable for bool {
             0.
         }
     }
+    fn value(float: f32) -> Self {
+        return float == 1.;
+    }
 }
 
 impl FloatRepresentable for f32 {
     fn float_value(&self) -> f32 {
         *self
+    }
+    fn value(float: f32) -> Self {
+        float
     }
 }
 
