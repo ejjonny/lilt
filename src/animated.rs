@@ -22,6 +22,20 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// // Animate
 /// let animated_width = state.animated_toggle.animate(0., 100., now);
 /// ```
+///
+/// An `Animated` struct represents a single animation axis. Multiple axes require multiple `Animated` structs.
+/// For example - to animate an x and a y position on the screen with different durations you'd need to
+/// wrap multiple float values independently.
+///
+/// ```rust
+/// use std::time::Instant;
+/// use lilt::Animated;
+///
+/// struct MyState {
+///     animated_x: Animated<f32, Instant>,
+///     animated_y: Animated<f32, Instant>,
+/// }
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
