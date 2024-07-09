@@ -138,9 +138,7 @@ impl Example {
                             .push(
                                 iced::widget::canvas(Spinner {
                                     trim: self.spinner_trim.animate_bool(0.5, 0., time),
-                                    rotation: self
-                                        .spinner_rotation
-                                        .animate(|animating| if animating { 0. } else { 1. }, time), // rotation: self.spinner_rotation.animate_bool(0., 1., time),
+                                    rotation: self.spinner_rotation.animate_bool(0., 1., time),
                                 })
                                 .height(Length::Fixed(250.))
                                 .width(Length::Fixed(250.)),
