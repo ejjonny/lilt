@@ -170,7 +170,6 @@ impl Program<AppMessage> for Spinner {
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
-        dbg!(self.trim);
         let mut frame = Frame::new(renderer, bounds.size());
         let stroke = 30.;
         let radius = (f32::min(bounds.width, bounds.height) * 0.5) - (stroke * 0.5);

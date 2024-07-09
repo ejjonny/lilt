@@ -258,11 +258,16 @@ where
         instantaneous: bool,
     ) {
         if instantaneous {
+            self.origin_value = destination_value;
             self.origin = destination;
             self.transition = None;
             return;
         }
         self.origin = self.eased_progress(time);
+        self.origin_value = self
+            .transition
+            .clone()
+            .map_or(self.origin_value.clone(), |t| t.destination_value);
         self.transition = Some(TransitionState {
             destination_value,
             start_time: time,
@@ -358,7 +363,7 @@ where
                 let (settings, _, _) = self.current_settings(time);
                 settings.easing.value(self.linear_unit_progress(time))
             }
-            Some(animation) => animation.destination,
+            Some(transition) => transition.destination,
             None => self.origin,
         }
     }
