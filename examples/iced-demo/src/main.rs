@@ -92,29 +92,32 @@ impl Example {
         let mut overused_font: Font = Font::with_name("Overused Grotesk Roman");
         overused_font.weight = Weight::Black;
         Stack::new()
-            // .push(
-            //     Row::new()
-            //         .extend(
-            //             self.bars
-            //                 .iter()
-            //                 .map(|b| {
-            //                     Container::new(Space::new(Length::Fill, b.animate(10., 300., time)))
-            //                         .style(move |_| {
-            //                             iced::widget::container::Style::default().with_background(
-            //                                 Color::from_rgb8(
-            //                                     b.animate(0., 108., time) as u8,
-            //                                     b.animate(0., 74., time) as u8,
-            //                                     b.animate(0., 181., time) as u8,
-            //                                 ),
-            //                             )
-            //                         })
-            //                         .into()
-            //                 })
-            //                 .collect::<Vec<_>>(),
-            //         )
-            //         .height(Length::Fill)
-            //         .align_items(iced::Alignment::Center),
-            // )
+            .push(
+                Row::new()
+                    .extend(
+                        self.bars
+                            .iter()
+                            .map(|b| {
+                                Container::new(Space::new(
+                                    Length::Fill,
+                                    b.animate_bool(10., 300., time),
+                                ))
+                                .style(move |_| {
+                                    iced::widget::container::Style::default().with_background(
+                                        Color::from_rgb8(
+                                            b.animate_bool(0., 108., time) as u8,
+                                            b.animate_bool(0., 74., time) as u8,
+                                            b.animate_bool(0., 181., time) as u8,
+                                        ),
+                                    )
+                                })
+                                .into()
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                    .height(Length::Fill)
+                    .align_items(iced::Alignment::Center),
+            )
             .push(
                 Column::new()
                     .push(vertical_space())
@@ -134,8 +137,10 @@ impl Example {
                             .push(horizontal_space())
                             .push(
                                 iced::widget::canvas(Spinner {
-                                    trim: self.spinner_trim.animate(0.5, 0., time),
-                                    rotation: 0., //self.spinner_rotation.animate(0., 1., time),
+                                    trim: self.spinner_trim.animate_bool(0.5, 0., time),
+                                    rotation: self
+                                        .spinner_rotation
+                                        .animate(|animating| if animating { 0. } else { 1. }, time), // rotation: self.spinner_rotation.animate_bool(0., 1., time),
                                 })
                                 .height(Length::Fixed(250.))
                                 .width(Length::Fixed(250.)),

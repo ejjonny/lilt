@@ -49,7 +49,7 @@ impl Example {
         match message {
             AppMessage::Animate => self
                 .animated_toggle
-                .transition(!self.animated_toggle.value, now),
+                .transition(!self.animated_toggle.value(), now),
             AppMessage::Tick => (),
         }
         Task::none()
@@ -68,7 +68,7 @@ impl Example {
                         .push(horizontal_space()),
                 )
                 .on_press(AppMessage::Animate)
-                .width(self.animated_toggle.animate(100., 500., now)),
+                .width(self.animated_toggle.animate_bool(100., 500., now)),
             )
             .push(vertical_space())
             .width(Length::Fill)

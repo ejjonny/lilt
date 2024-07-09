@@ -18,9 +18,13 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// let now = std::time::Instant::now();
 /// state
 ///     .animated_toggle
-///     .transition(!state.animated_toggle.value, now);
+///     .transition(!state.animated_toggle.value(), now);
 /// // Animate
-/// let animated_width = state.animated_toggle.animate(0., 100., now);
+/// let animated_width = state.animated_toggle.animate_bool(0., 100., now);
+/// let animated_width = state.animated_toggle.animate(
+///    |on| if on { 0. } else { 100. },
+///    now,
+/// );
 /// ```
 ///
 /// An `Animated` struct represents a single animation axis. Multiple axes require multiple `Animated` structs.
@@ -39,33 +43,36 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
-    T: FloatRepresentable,
+    T: FloatRepresentable + Clone,
     Time: AnimationTime,
 {
-    /// The wrapped state - updates to this value can be interpolated
-    pub value: T,
-    animation: Animation<Time>,
+    animation: Animation<T, Time>,
 }
 
 impl<T, Time> Animated<T, Time>
 where
-    T: FloatRepresentable,
+    T: FloatRepresentable + Clone,
     Time: AnimationTime,
 {
+    pub fn value(&self) -> T {
+        self.animation
+            .transition
+            .clone()
+            .map_or(self.animation.origin_value.clone(), |t| t.destination_value)
+    }
     /// Creates an animated value with specified animation settings
     pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing) -> Self {
         let float = value.float_value();
-        let mut animation = Animation::default(float);
+        let mut animation = Animation::default(value, float);
         animation.settings.duration_ms = duration_ms;
         animation.settings.easing = easing;
-        Animated { value, animation }
+        Animated { animation }
     }
     /// Creates an animated value with a default animation
     pub fn new(value: T) -> Self {
         let float = value.float_value();
         Self {
-            value,
-            animation: Animation::default(float),
+            animation: Animation::default(value, float),
         }
     }
     /// Specifies the duration of the animation in milliseconds
@@ -130,37 +137,30 @@ where
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
-        self.animation
-            .transition(new_value.float_value(), at, false);
-        self.value = new_value
+        let f = new_value.float_value();
+        self.animation.transition(new_value, f, at, false);
     }
     /// Updates the wrapped state & instantaneously completes an animation.
     /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
-        self.animation.transition(new_value.float_value(), at, true);
-        self.value = new_value
+        let f = new_value.float_value();
+        self.animation.transition(new_value, f, at, true);
     }
     /// Returns whether the animation is complete, given the current time
     pub fn in_progress(&self, time: Time) -> bool {
         self.animation.in_progress(time)
     }
-    /// Interpolates any value that implements `Interpolable`, given the current time
-    pub fn animate<I>(&self, from: I, to: I, time: Time) -> I
+    /// Interpolates between states of any value that implements `Interpolable`, given the current time
+    pub fn animate<I>(&self, v: impl Fn(T) -> I, time: Time) -> I
     where
         I: Interpolable,
     {
-        from.interpolated(to, self.animation.eased_unit_progress(time))
-    }
-    pub fn animate_map<I>(&self, v: impl Fn(&T) -> I, time: Time) -> I
-    where
-        I: Interpolable,
-    {
-        let from = &T::value(self.animation.origin);
-        let to = &T::value(
-            self.animation
-                .transition
-                .map_or(self.animation.origin, |t| t.destination),
-        );
+        let from = self.animation.origin_value.clone();
+        let to = self
+            .animation
+            .transition
+            .clone()
+            .map_or(self.animation.origin_value.clone(), |t| t.destination_value);
         v(from).interpolated(v(to), self.animation.eased_unit_progress(time))
     }
     // Just for nicer testing
@@ -174,8 +174,34 @@ where
     }
 }
 
+impl<Time> Animated<bool, Time>
+where
+    Time: AnimationTime,
+{
+    /// Interpolates any value that implements `Interpolable`, given the current time
+    pub fn animate_bool<I: Clone>(&self, false_value: I, true_value: I, time: Time) -> I
+    where
+        I: Interpolable,
+    {
+        self.animate(
+            move |b| {
+                if b {
+                    true_value.clone()
+                } else {
+                    false_value.clone()
+                }
+            },
+            time,
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
-struct Animation<Time> {
+struct Animation<T, Time>
+where
+    T: FloatRepresentable + Clone,
+{
+    origin_value: T,
     origin: f32,
     delay_ms: f32,
     settings: AnimationSettings,
@@ -183,7 +209,7 @@ struct Animation<Time> {
     repetitions: u32,
     auto_reverse_repetitions: bool,
     repeat_forever: bool,
-    transition: Option<TransitionState<Time>>,
+    transition: Option<TransitionState<T, Time>>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -193,17 +219,23 @@ struct AnimationSettings {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct TransitionState<Time> {
+struct TransitionState<T, Time>
+where
+    T: FloatRepresentable + Clone,
+{
+    destination_value: T,
     destination: f32,
     start_time: Time,
 }
 
-impl<Time> Animation<Time>
+impl<T, Time> Animation<T, Time>
 where
+    T: FloatRepresentable + Clone,
     Time: AnimationTime,
 {
-    fn default(origin: f32) -> Self {
+    fn default(origin_value: T, origin: f32) -> Self {
         Animation {
+            origin_value,
             origin,
             settings: AnimationSettings {
                 duration_ms: 100.,
@@ -218,7 +250,13 @@ where
         }
     }
 
-    fn transition(&mut self, destination: f32, time: Time, instantaneous: bool) {
+    fn transition(
+        &mut self,
+        destination_value: T,
+        destination: f32,
+        time: Time,
+        instantaneous: bool,
+    ) {
         if instantaneous {
             self.origin = destination;
             self.transition = None;
@@ -226,6 +264,7 @@ where
         }
         self.origin = self.eased_progress(time);
         self.transition = Some(TransitionState {
+            destination_value,
             start_time: time,
             destination,
         });
@@ -306,7 +345,11 @@ where
     fn linear_progress(&self, time: Time) -> f32 {
         self.origin
             + (self.linear_unit_progress(time)
-                * (self.transition.map_or(self.origin, |t| t.destination) - self.origin))
+                * (self
+                    .transition
+                    .clone()
+                    .map_or(self.origin, |t| t.destination)
+                    - self.origin))
     }
 
     fn eased_unit_progress(&self, time: Time) -> f32 {
@@ -323,7 +366,11 @@ where
     fn eased_progress(&self, time: Time) -> f32 {
         self.origin
             + (self.eased_unit_progress(time)
-                * (self.transition.map_or(self.origin, |t| t.destination) - self.origin))
+                * (self
+                    .transition
+                    .clone()
+                    .map_or(self.origin, |t| t.destination)
+                    - self.origin))
     }
 
     fn in_progress(&self, time: Time) -> bool {
@@ -523,24 +570,6 @@ impl Easing {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_docs() {
-        struct MyViewState {
-            animated_toggle: Animated<bool, std::time::Instant>,
-        }
-        // Initialize
-        let mut state = MyViewState {
-            animated_toggle: Animated::new(false),
-        };
-        // Update
-        let now = std::time::Instant::now();
-        state
-            .animated_toggle
-            .transition(!state.animated_toggle.value, now);
-        // Animate
-        let _animated_width = state.animated_toggle.animate(0., 100., now);
-    }
 
     #[test]
     fn test_repeat_forever() {
@@ -756,6 +785,23 @@ mod tests {
         assert!(approximately_equal(anim.linear_progress(3.2), 2.0));
         assert!(approximately_equal(anim.linear_progress(3.8), 8.0));
         assert!(approximately_equal(anim.linear_progress(4.0), 10.0));
+    }
+
+    #[test]
+    fn test_progression_negative() {
+        let mut anim = Animated::new(0.).duration(1.).easing(Easing::EaseInOut);
+
+        anim.transition(-10.0, 0.0);
+        assert_eq!(anim.linear_progress(0.5), -5.0);
+        assert_eq!(anim.linear_progress(1.0), -10.0);
+
+        assert!(anim.eased_progress(0.25) > anim.linear_progress(0.25));
+        assert!(anim.eased_progress(0.5) == anim.linear_progress(0.5));
+        assert!(anim.eased_progress(0.75) < anim.linear_progress(0.75));
+
+        anim.transition(0.0, 1.0);
+        assert_eq!(anim.linear_progress(1.5), -5.0);
+        assert_eq!(anim.linear_progress(2.0), 0.0);
     }
 
     #[test]
