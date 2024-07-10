@@ -75,3 +75,5 @@ let animated_opacity = self.animated_enum.animate_if_eq(
 ```
 
 ## [Examples](examples/)
+![indicator](https://github.com/ejjonny/lilt/assets/17223924/e4f81d63-67a4-4586-a2cf-309c687fd59d)
+
