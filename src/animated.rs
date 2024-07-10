@@ -918,6 +918,82 @@ mod tests {
         assert_eq!(anim.linear_progress(1020.), 0.);
     }
 
+    #[test]
+    fn test_negative_values() {
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim.transition(-10.0, 0.0);
+        assert_eq!(anim.linear_progress(0.0), 0.0);
+        assert_eq!(anim.linear_progress(500.0), -5.0);
+        assert_eq!(anim.linear_progress(1000.0), -10.0);
+        anim.transition(-5.0, 1000.0);
+        assert_eq!(anim.linear_progress(1000.0), -10.0);
+        assert_eq!(anim.linear_progress(1500.0), -7.5);
+        assert_eq!(anim.linear_progress(2000.0), -5.0);
+    }
+
+    #[test]
+    fn test_negative_to_positive_transition() {
+        let mut anim = Animated::new(-5.).duration(1000.).easing(Easing::Linear);
+        anim.transition(5.0, 0.0);
+        assert_eq!(anim.linear_progress(0.0), -5.0);
+        assert_eq!(anim.linear_progress(500.0), 0.0);
+        assert_eq!(anim.linear_progress(1000.0), 5.0);
+    }
+
+    #[test]
+    fn test_interruption_with_negative_values() {
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim.transition(-10.0, 0.0);
+        assert_eq!(anim.linear_progress(250.0), -2.5);
+        anim.transition(5.0, 250.0); // Interrupt at 25%
+        assert_eq!(anim.animation.origin, -2.5); // New origin should be the current progress
+        assert_eq!(anim.linear_progress(750.0), 1.25); // Halfway to new destination
+        assert_eq!(anim.linear_progress(1250.0), 5.0); // Completed to new destination
+    }
+
+    #[test]
+    fn test_multiple_interruptions() {
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim.transition(10.0, 0.0);
+        assert_eq!(anim.linear_progress(500.0), 5.);
+        anim.transition(15.0, 500.0); // First interruption
+        assert_eq!(anim.linear_progress(1000.0), 10.); // 50% to new destination
+        anim.transition(0.0, 1000.0); // Second interruption
+        assert_eq!(anim.animation.origin, 10.); // New origin after second interruption
+        assert_eq!(anim.linear_progress(1500.0), 5.); // Halfway to final destination
+        assert_eq!(anim.linear_progress(2000.0), 0.0); // Completed to final destination
+    }
+
+    #[test]
+    fn test_interruption_with_direction_change() {
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim.transition(10.0, 0.0);
+        assert_eq!(anim.linear_progress(500.0), 5.0);
+        anim.transition(-5.0, 500.0); // Interrupt and change direction
+        assert_eq!(anim.animation.origin, 5.0); // New origin should be the current progress
+        assert_eq!(anim.linear_progress(1000.0), 0.0); // Halfway back to new destination
+        assert_eq!(anim.linear_progress(1500.0), -5.0); // Completed to new destination
+    }
+
+    #[test]
+    fn test_zero_duration_transition() {
+        let mut anim = Animated::new(0.).duration(0.).easing(Easing::Linear);
+        anim.transition(10.0, 0.0);
+        assert_eq!(anim.linear_progress(0.0), 10.0); // Should immediately reach the destination
+        assert!(!anim.in_progress(0.0)); // Should not be in progress
+    }
+
+    #[test]
+    fn test_interruption_at_completion() {
+        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim.transition(10.0, 0.0);
+        assert_eq!(anim.linear_progress(1000.0), 10.0); // Completed
+        anim.transition(20.0, 1000.0); // Interrupt right at completion
+        assert_eq!(anim.animation.origin, 10.0); // New origin should be the completed value
+        assert_eq!(anim.linear_progress(1500.0), 15.0); // Halfway to new destination
+        assert_eq!(anim.linear_progress(2000.0), 20.0); // Completed to new destination
+    }
+
     impl AnimationTime for f32 {
         fn elapsed_since(self, time: Self) -> f32 {
             self - time
