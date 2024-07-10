@@ -18,7 +18,7 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// let now = std::time::Instant::now();
 /// state
 ///     .animated_toggle
-///     .transition(!state.animated_toggle.value(), now);
+///     .transition(!state.animated_toggle.value, now);
 /// // Animate
 /// let animated_width = state.animated_toggle.animate_bool(0., 100., now);
 /// let animated_width = state.animated_toggle.animate(
@@ -156,18 +156,28 @@ where
     where
         I: Interpolable,
     {
-        let r = self.value.float_value() - self.last_value.float_value();
-        let o = map(self.value.clone()).interpolated(
-            map(self.last_value.clone()),
-            1. - ((self.animation.origin - self.last_value.float_value()) / r),
-        );
-        dbg!(
-            self.animation.origin,
-            r,
-            self.last_value.float_value(),
-            self.value.float_value()
-        );
-        o.interpolated(
+        // The generic T values are arbitrary targets that may not be continuous,
+        // so we can't store an interrupted T in the case that it's something like
+        // an int or enum - therefore we store the interrupted float representation.
+        //
+        // Given ONLY a function which maps T values to interpolable values,
+        // we need some way to go from an interrupt float & a unit progress value
+        // to the final interpolable value.
+        //
+        // The only way to do so without storing interpolable values is to represent
+        // the interrupt float (origin) as an interpolable value and interpolate between
+        // that and the current destination.
+        let interrupted_range = self.value.float_value() - self.last_value.float_value();
+        let unit_interrupt_value: f32;
+        if interrupted_range == 0. {
+            unit_interrupt_value = 0.;
+        } else {
+            unit_interrupt_value =
+                (self.animation.origin - self.last_value.float_value()) / interrupted_range;
+        }
+        let interrupt_interpolable = map(self.last_value.clone())
+            .interpolated(map(self.value.clone()), unit_interrupt_value);
+        interrupt_interpolable.interpolated(
             map(self.value.clone()),
             self.animation.eased_unit_progress(time),
         )
@@ -297,7 +307,7 @@ where
 
     fn linear_unit_progress(&self, time: Time) -> f32 {
         let Some(transition_time) = self.transition_time else {
-            return 0.;
+            return 1.;
         };
         let (settings, elapsed, reversing) = self.current_settings(time);
         let elapsed = elapsed.unwrap_or(f32::max(

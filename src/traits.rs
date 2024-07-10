@@ -41,6 +41,7 @@ pub trait Interpolable {
 
 impl Interpolable for f32 {
     fn interpolated(&self, other: Self, ratio: f32) -> Self {
+        assert!(!ratio.is_nan());
         self * (1.0 - ratio) + other * ratio
     }
 }
