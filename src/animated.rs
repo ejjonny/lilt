@@ -198,6 +198,8 @@ where
     T: FloatRepresentable + Clone + Eq,
     Time: AnimationTime,
 {
+    /// Interpolates to `equal` when the wrapped value matches the provided `value`
+    /// Otherwise interpolatea towards `default`
     pub fn animate_if_eq<I: Clone>(&self, value: T, equal: I, default: I, time: Time) -> I
     where
         I: Interpolable,
