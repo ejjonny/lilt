@@ -44,7 +44,7 @@ When your state needs an update, call the `transition` function on your animated
 let now = std::time::Instant::now();
 state
     .animated_toggle
-    .transition(!state.animated_toggle.value(), now);
+    .transition(!state.animated_toggle.value, now);
 ```
 
 ### Render
@@ -57,11 +57,21 @@ let now = std::time::Instant::now();
 let animated_width = self.animated_toggle.animate_bool(100., 500., now);
 // Or add an `Interpolable` implementation to an object of your choice, like a color
 let animated_color = self.animated_toggle.animate_bool(my_color_a, my_color_b, now);
-// Other `FloatRepresentable` types like can use the `animate` method
-let animated_width = self.animated_toggle.animate(
-    |on| if on { 0. } else { 100. },
+// Sometimes `animate` or `animate_eq` can be better fits, depending on the wrapped type
+let animated_width = self.animated_enum.animate(
+    |enum_value| {
+        match {
+            //...
+        }
+    },
     now,
  );
+let animated_opacity = self.animated_enum.animate_eq(
+    IndicatorState::Analyzing,
+    1.,
+    0.,
+    time,
+)
 ```
 
 ## [Examples](examples/)
