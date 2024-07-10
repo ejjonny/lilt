@@ -46,7 +46,9 @@ where
     T: FloatRepresentable + Clone,
     Time: AnimationTime,
 {
-    animation: Animation<T, Time>,
+    animation: Animation<Time>,
+    pub value: T,
+    last_value: T,
 }
 
 impl<T, Time> Animated<T, Time>
@@ -54,25 +56,23 @@ where
     T: FloatRepresentable + Clone,
     Time: AnimationTime,
 {
-    pub fn value(&self) -> T {
-        self.animation
-            .transition
-            .clone()
-            .map_or(self.animation.origin_value.clone(), |t| t.destination_value)
-    }
     /// Creates an animated value with specified animation settings
     pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing) -> Self {
-        let float = value.float_value();
-        let mut animation = Animation::default(value, float);
+        let mut animation = Animation::default(value.float_value());
         animation.settings.duration_ms = duration_ms;
         animation.settings.easing = easing;
-        Animated { animation }
+        Animated {
+            value: value.clone(),
+            last_value: value,
+            animation,
+        }
     }
     /// Creates an animated value with a default animation
     pub fn new(value: T) -> Self {
-        let float = value.float_value();
         Self {
-            animation: Animation::default(value, float),
+            value: value.clone(),
+            last_value: value.clone(),
+            animation: Animation::default(value.float_value()),
         }
     }
     /// Specifies the duration of the animation in milliseconds
@@ -137,31 +137,40 @@ where
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
-        let f = new_value.float_value();
-        self.animation.transition(new_value, f, at, false);
+        self.last_value = self.value.clone();
+        self.value = new_value.clone();
+        self.animation
+            .transition(new_value.float_value(), at, false)
     }
     /// Updates the wrapped state & instantaneously completes an animation.
     /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
-        let f = new_value.float_value();
-        self.animation.transition(new_value, f, at, true);
+        self.animation.transition(new_value.float_value(), at, true);
     }
     /// Returns whether the animation is complete, given the current time
     pub fn in_progress(&self, time: Time) -> bool {
         self.animation.in_progress(time)
     }
     /// Interpolates between states of any value that implements `Interpolable`, given the current time
-    pub fn animate<I>(&self, v: impl Fn(T) -> I, time: Time) -> I
+    pub fn animate<I>(&self, map: impl Fn(T) -> I, time: Time) -> I
     where
         I: Interpolable,
     {
-        let from = self.animation.origin_value.clone();
-        let to = self
-            .animation
-            .transition
-            .clone()
-            .map_or(self.animation.origin_value.clone(), |t| t.destination_value);
-        v(from).interpolated(v(to), self.animation.eased_unit_progress(time))
+        let r = self.value.float_value() - self.last_value.float_value();
+        let o = map(self.value.clone()).interpolated(
+            map(self.last_value.clone()),
+            1. - ((self.animation.origin - self.last_value.float_value()) / r),
+        );
+        dbg!(
+            self.animation.origin,
+            r,
+            self.last_value.float_value(),
+            self.value.float_value()
+        );
+        o.interpolated(
+            map(self.value.clone()),
+            self.animation.eased_unit_progress(time),
+        )
     }
     // Just for nicer testing
     #[allow(dead_code)]
@@ -197,19 +206,19 @@ where
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct Animation<T, Time>
+struct Animation<Time>
 where
-    T: FloatRepresentable + Clone,
+    Time: AnimationTime,
 {
-    origin_value: T,
     origin: f32,
+    destination: f32,
     delay_ms: f32,
     settings: AnimationSettings,
     asymmetric_settings: Option<AnimationSettings>,
     repetitions: u32,
     auto_reverse_repetitions: bool,
     repeat_forever: bool,
-    transition: Option<TransitionState<T, Time>>,
+    transition_time: Option<Time>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -218,74 +227,51 @@ struct AnimationSettings {
     easing: Easing,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-struct TransitionState<T, Time>
+impl<Time> Animation<Time>
 where
-    T: FloatRepresentable + Clone,
-{
-    destination_value: T,
-    destination: f32,
-    start_time: Time,
-}
-
-impl<T, Time> Animation<T, Time>
-where
-    T: FloatRepresentable + Clone,
     Time: AnimationTime,
 {
-    fn default(origin_value: T, origin: f32) -> Self {
+    fn default(origin: f32) -> Self {
         Animation {
-            origin_value,
             origin,
+            destination: origin,
             settings: AnimationSettings {
                 duration_ms: 100.,
                 easing: Easing::EaseInOut,
             },
             asymmetric_settings: None,
             delay_ms: 0.,
-            transition: None,
             repetitions: 1,
             auto_reverse_repetitions: false,
             repeat_forever: false,
+            transition_time: None,
         }
     }
 
-    fn transition(
-        &mut self,
-        destination_value: T,
-        destination: f32,
-        time: Time,
-        instantaneous: bool,
-    ) {
+    fn transition(&mut self, destination: f32, time: Time, instantaneous: bool) {
         if instantaneous {
-            self.origin_value = destination_value;
+            self.transition_time = None;
             self.origin = destination;
-            self.transition = None;
+            self.destination = destination;
             return;
         }
-        self.origin = self.eased_progress(time);
-        self.origin_value = self
-            .transition
-            .clone()
-            .map_or(self.origin_value.clone(), |t| t.destination_value);
-        self.transition = Some(TransitionState {
-            destination_value,
-            start_time: time,
-            destination,
-        });
+        if self.in_progress(time) {
+            self.origin = self.eased_progress(time);
+        } else {
+            self.origin = self.destination.clone();
+        }
+        self.transition_time = Some(time);
+        self.destination = destination;
     }
 
     fn current_settings(&self, time: Time) -> (AnimationSettings, Option<f32>, bool) {
-        let Some(transition) = &self.transition else {
+        let Some(transition_time) = self.transition_time else {
             return (self.settings, None, false);
         };
         let asymmetric_settings = self.asymmetric_settings.unwrap_or(self.settings);
         if self.auto_reverse_repetitions {
-            let elapsed = f32::max(
-                0.,
-                time.elapsed_since(transition.start_time) - self.delay_ms,
-            );
-            let first_duration = if transition.destination > self.origin {
+            let elapsed = f32::max(0., time.elapsed_since(transition_time) - self.delay_ms);
+            let first_duration = if self.destination.float_value() > self.origin.float_value() {
                 self.settings.duration_ms
             } else {
                 asymmetric_settings.duration_ms
@@ -302,7 +288,7 @@ where
             } else {
                 (asymmetric_settings, Some(current_elapsed), true)
             }
-        } else if transition.destination > self.origin {
+        } else if self.destination.float_value() > self.origin.float_value() {
             (self.settings, None, false)
         } else {
             (asymmetric_settings, None, true)
@@ -310,77 +296,65 @@ where
     }
 
     fn linear_unit_progress(&self, time: Time) -> f32 {
-        if let Some(transition) = &self.transition {
-            let (settings, elapsed, reversing) = self.current_settings(time);
-            let elapsed = elapsed.unwrap_or(f32::max(
-                0.,
-                time.elapsed_since(transition.start_time) - self.delay_ms,
-            ));
-            let true_repetitions = if self.auto_reverse_repetitions {
-                (self.repetitions * 2) + 1
-            } else {
-                self.repetitions
-            };
-            let total_duration = settings.duration_ms * true_repetitions as f32;
-            if total_duration == 0. {
-                return 1.;
-            }
-            let limited_elapsed = f32::min(elapsed, total_duration);
-            let progress_ms: f32;
-            if self.repeat_forever {
-                progress_ms = elapsed % settings.duration_ms;
-            } else if elapsed >= total_duration {
-                progress_ms = settings.duration_ms;
-            } else {
-                progress_ms = limited_elapsed % settings.duration_ms;
-            }
-            let absolute_unit_progress = progress_ms / settings.duration_ms;
-            let unit_progress = if reversing && self.auto_reverse_repetitions {
-                //Reversal must be represented in the context of the forward animation in this case
-                1. - absolute_unit_progress
-            } else {
-                absolute_unit_progress
-            };
-            unit_progress
+        let Some(transition_time) = self.transition_time else {
+            return 0.;
+        };
+        let (settings, elapsed, reversing) = self.current_settings(time);
+        let elapsed = elapsed.unwrap_or(f32::max(
+            0.,
+            time.elapsed_since(transition_time) - self.delay_ms,
+        ));
+        let true_repetitions = if self.auto_reverse_repetitions {
+            (self.repetitions * 2) + 1
         } else {
-            0.
+            self.repetitions
+        };
+        let total_duration = settings.duration_ms * true_repetitions as f32;
+        if total_duration == 0. {
+            return 1.;
         }
+        let limited_elapsed = f32::min(elapsed, total_duration);
+        let progress_ms: f32;
+        if self.repeat_forever {
+            progress_ms = elapsed % settings.duration_ms;
+        } else if elapsed >= total_duration {
+            progress_ms = settings.duration_ms;
+        } else {
+            progress_ms = limited_elapsed % settings.duration_ms;
+        }
+        let absolute_unit_progress = progress_ms / settings.duration_ms;
+        let unit_progress = if reversing && self.auto_reverse_repetitions {
+            // Reversal must be represented in the context of the forward animation in this case
+            1. - absolute_unit_progress
+        } else {
+            absolute_unit_progress
+        };
+        unit_progress
     }
 
     fn linear_progress(&self, time: Time) -> f32 {
-        self.origin
-            + (self.linear_unit_progress(time)
-                * (self
-                    .transition
-                    .clone()
-                    .map_or(self.origin, |t| t.destination)
-                    - self.origin))
+        self.origin.float_value() + (self.linear_unit_progress(time) * self.progress_range())
     }
 
     fn eased_unit_progress(&self, time: Time) -> f32 {
-        match &self.transition {
-            Some(transition) if transition.destination != self.origin => {
-                let (settings, _, _) = self.current_settings(time);
-                settings.easing.value(self.linear_unit_progress(time))
-            }
-            Some(transition) => transition.destination,
-            None => self.origin,
+        if self.destination.float_value() != self.origin.float_value() {
+            let (settings, _, _) = self.current_settings(time);
+            settings.easing.value(self.linear_unit_progress(time))
+        } else {
+            self.destination.float_value()
         }
     }
 
     fn eased_progress(&self, time: Time) -> f32 {
-        self.origin
-            + (self.eased_unit_progress(time)
-                * (self
-                    .transition
-                    .clone()
-                    .map_or(self.origin, |t| t.destination)
-                    - self.origin))
+        self.origin.float_value() + (self.eased_unit_progress(time) * self.progress_range())
+    }
+
+    fn progress_range(&self) -> f32 {
+        self.destination.float_value() - self.origin.float_value()
     }
 
     fn in_progress(&self, time: Time) -> bool {
-        let linear_progress = self.linear_progress(time);
-        matches!(&self.transition, Some(animation) if linear_progress != animation.destination)
+        f32::max(0., f32::min(1., self.linear_unit_progress(time))) != 1.
     }
 }
 
@@ -664,14 +638,6 @@ mod tests {
         assert_eq!(custom_ease.value(0.0), 0.0);
         assert_eq!(custom_ease.value(0.5), 0.25);
         assert_eq!(custom_ease.value(1.0), 1.0);
-    }
-
-    #[test]
-    fn test_transition() {
-        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
-        anim.transition(10.0, 0.0);
-        assert!(anim.animation.transition.is_some());
-        assert_eq!(anim.animation.transition.unwrap().destination, 10.0);
     }
 
     #[test]
