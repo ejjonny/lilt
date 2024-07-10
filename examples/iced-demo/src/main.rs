@@ -98,17 +98,20 @@ impl Example {
                         self.bars
                             .iter()
                             .map(|b| {
-                                Container::new(Space::new(Length::Fill, b.animate(10., 300., time)))
-                                    .style(move |_| {
-                                        iced::widget::container::Style::default().with_background(
-                                            Color::from_rgb8(
-                                                b.animate(0., 108., time) as u8,
-                                                b.animate(0., 74., time) as u8,
-                                                b.animate(0., 181., time) as u8,
-                                            ),
-                                        )
-                                    })
-                                    .into()
+                                Container::new(Space::new(
+                                    Length::Fill,
+                                    b.animate_bool(10., 300., time),
+                                ))
+                                .style(move |_| {
+                                    iced::widget::container::Style::default().with_background(
+                                        Color::from_rgb8(
+                                            b.animate_bool(0., 108., time) as u8,
+                                            b.animate_bool(0., 74., time) as u8,
+                                            b.animate_bool(0., 181., time) as u8,
+                                        ),
+                                    )
+                                })
+                                .into()
                             })
                             .collect::<Vec<_>>(),
                     )
@@ -134,8 +137,8 @@ impl Example {
                             .push(horizontal_space())
                             .push(
                                 iced::widget::canvas(Spinner {
-                                    trim: self.spinner_trim.animate(0.5, 0., time),
-                                    rotation: self.spinner_rotation.animate(0., 1., time),
+                                    trim: self.spinner_trim.animate_bool(0.5, 0., time),
+                                    rotation: self.spinner_rotation.animate_bool(0., 1., time),
                                 })
                                 .height(Length::Fixed(250.))
                                 .width(Length::Fixed(250.)),

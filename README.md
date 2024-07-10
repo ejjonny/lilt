@@ -54,9 +54,24 @@ While rendering a view based on your state - use the `animate` function on your 
 ```rust
 let now = std::time::Instant::now();
 // Use the animated float for something like width, height, offset
-let animated_width = self.animated_toggle.animate(100., 500., now)
+let animated_width = self.animated_toggle.animate_bool(100., 500., now);
 // Or add an `Interpolable` implementation to an object of your choice, like a color
-let animated_color = self.animated_toggle.animate(my_color_a, my_color_b, now)
+let animated_color = self.animated_toggle.animate_bool(my_color_a, my_color_b, now);
+// Sometimes `animate` or `animate_if_eq` can be better fits, depending on the wrapped type
+let animated_width = self.animated_enum.animate(
+    |enum_value| {
+        match {
+            //...
+        }
+    },
+    now,
+ );
+let animated_opacity = self.animated_enum.animate_if_eq(
+    IndicatorState::Analyzing,
+    1.,
+    0.,
+    time,
+)
 ```
 
 ## [Examples](examples/)

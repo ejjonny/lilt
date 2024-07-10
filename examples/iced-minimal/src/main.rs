@@ -68,7 +68,7 @@ impl Example {
                         .push(horizontal_space()),
                 )
                 .on_press(AppMessage::Animate)
-                .width(self.animated_toggle.animate(100., 500., now)),
+                .width(self.animated_toggle.animate_bool(100., 300., now)),
             )
             .push(vertical_space())
             .width(Length::Fill)
