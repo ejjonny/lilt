@@ -198,7 +198,7 @@ impl Example {
                                                         ))
                                                         .unwrap_or(time),
                                                     ),
-                                                    opacity: self.indicator_state.animate_eq(
+                                                    opacity: self.indicator_state.animate_if_eq(
                                                         IndicatorState::Analyzing,
                                                         1.,
                                                         0.,
@@ -207,7 +207,7 @@ impl Example {
                                                 })
                                                 .width(Length::Fixed(
                                                     height
-                                                        * self.indicator_state.animate_eq(
+                                                        * self.indicator_state.animate_if_eq(
                                                             IndicatorState::Analyzing,
                                                             icon_big,
                                                             icon_small,
@@ -216,7 +216,7 @@ impl Example {
                                                 ))
                                                 .height(Length::Fixed(
                                                     height
-                                                        * self.indicator_state.animate_eq(
+                                                        * self.indicator_state.animate_if_eq(
                                                             IndicatorState::Analyzing,
                                                             icon_big,
                                                             icon_small,
@@ -228,7 +228,7 @@ impl Example {
                                                 warn_icon
                                                     .width(Length::Fixed(
                                                         height
-                                                            * self.indicator_state.animate_eq(
+                                                            * self.indicator_state.animate_if_eq(
                                                                 IndicatorState::Warning,
                                                                 icon_big,
                                                                 icon_small,
@@ -237,7 +237,7 @@ impl Example {
                                                     ))
                                                     .height(Length::Fixed(
                                                         height
-                                                            * self.indicator_state.animate_eq(
+                                                            * self.indicator_state.animate_if_eq(
                                                                 IndicatorState::Warning,
                                                                 icon_big,
                                                                 icon_small,
@@ -247,7 +247,7 @@ impl Example {
                                                     .style(move |_, _| iced::widget::svg::Style {
                                                         color: Some(fg_color_warning),
                                                     })
-                                                    .opacity(self.indicator_state.animate_eq(
+                                                    .opacity(self.indicator_state.animate_if_eq(
                                                         IndicatorState::Warning,
                                                         1.,
                                                         0.,
@@ -258,7 +258,7 @@ impl Example {
                                                 check_icon
                                                     .width(Length::Fixed(
                                                         height
-                                                            * self.indicator_state.animate_eq(
+                                                            * self.indicator_state.animate_if_eq(
                                                                 IndicatorState::Safe,
                                                                 icon_big,
                                                                 icon_small,
@@ -267,7 +267,7 @@ impl Example {
                                                     ))
                                                     .height(Length::Fixed(
                                                         height
-                                                            * self.indicator_state.animate_eq(
+                                                            * self.indicator_state.animate_if_eq(
                                                                 IndicatorState::Safe,
                                                                 icon_big,
                                                                 icon_small,
@@ -277,7 +277,7 @@ impl Example {
                                                     .style(move |_, _| iced::widget::svg::Style {
                                                         color: Some(fg_color_safe),
                                                     })
-                                                    .opacity(self.indicator_state.animate_eq(
+                                                    .opacity(self.indicator_state.animate_if_eq(
                                                         IndicatorState::Safe,
                                                         1.,
                                                         0.,
@@ -300,7 +300,7 @@ impl Example {
                                             .push(
                                                 text("safe").font(font).size(height * 0.35).color(
                                                     fg_color.scale_alpha(
-                                                        self.indicator_state.animate_eq(
+                                                        self.indicator_state.animate_if_eq(
                                                             IndicatorState::Safe,
                                                             1.,
                                                             0.,
@@ -314,7 +314,7 @@ impl Example {
                                                     .font(font)
                                                     .size(height * 0.35)
                                                     .color(fg_color.scale_alpha(
-                                                        self.indicator_state.animate_eq(
+                                                        self.indicator_state.animate_if_eq(
                                                             IndicatorState::Warning,
                                                             1.,
                                                             0.,
@@ -327,7 +327,7 @@ impl Example {
                                                     .font(font)
                                                     .size(height * 0.35)
                                                     .color(fg_color.scale_alpha(
-                                                        self.indicator_state.animate_eq(
+                                                        self.indicator_state.animate_if_eq(
                                                             IndicatorState::Analyzing,
                                                             1.,
                                                             0.,

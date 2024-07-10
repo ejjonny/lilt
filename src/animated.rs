@@ -198,7 +198,7 @@ where
     T: FloatRepresentable + Clone + Eq,
     Time: AnimationTime,
 {
-    pub fn animate_eq<I: Clone>(&self, value: T, equal: I, not_equal: I, time: Time) -> I
+    pub fn animate_if_eq<I: Clone>(&self, value: T, equal: I, default: I, time: Time) -> I
     where
         I: Interpolable,
     {
@@ -207,7 +207,7 @@ where
                 if v == value {
                     equal.clone()
                 } else {
-                    not_equal.clone()
+                    default.clone()
                 }
             },
             time,
