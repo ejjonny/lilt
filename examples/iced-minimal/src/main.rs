@@ -13,7 +13,7 @@ pub fn main() -> iced::Result {
 }
 
 struct Example {
-    animated_toggle: Animated<f32, Instant>,
+    animated_toggle: Animated<bool, Instant>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -31,7 +31,7 @@ impl Default for Example {
 impl Example {
     fn new() -> Self {
         Self {
-            animated_toggle: Animated::new(3.).duration(1000.).easing(Easing::Linear),
+            animated_toggle: Animated::new(false).duration(300.).easing(Easing::EaseOut),
         }
     }
 
@@ -47,14 +47,9 @@ impl Example {
     fn update(&mut self, message: AppMessage) -> Task<AppMessage> {
         let now = std::time::Instant::now();
         match message {
-            AppMessage::Animate => self.animated_toggle.transition(
-                if self.animated_toggle.value >= 5. {
-                    3.
-                } else {
-                    self.animated_toggle.value + 1.
-                },
-                now,
-            ),
+            AppMessage::Animate => self
+                .animated_toggle
+                .transition(!self.animated_toggle.value, now),
             AppMessage::Tick => (),
         }
         Task::none()
@@ -73,7 +68,7 @@ impl Example {
                         .push(horizontal_space()),
                 )
                 .on_press(AppMessage::Animate)
-                .width(self.animated_toggle.animate(|a| a * 100., now)),
+                .width(self.animated_toggle.animate_bool(100., 300., now)),
             )
             .push(vertical_space())
             .width(Length::Fill)
