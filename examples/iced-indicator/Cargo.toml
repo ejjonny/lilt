@@ -1,0 +1,12 @@
+[package]
+name = "iced-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
+    "canvas",
+    "tokio",
+    "svg",
+] }
+lilt = { path = "../../" }

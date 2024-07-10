@@ -193,6 +193,28 @@ where
     }
 }
 
+impl<T, Time> Animated<T, Time>
+where
+    T: FloatRepresentable + Clone + Eq,
+    Time: AnimationTime,
+{
+    pub fn animate_eq<I: Clone>(&self, value: T, equal: I, not_equal: I, time: Time) -> I
+    where
+        I: Interpolable,
+    {
+        self.animate(
+            |v| {
+                if v == value {
+                    equal.clone()
+                } else {
+                    not_equal.clone()
+                }
+            },
+            time,
+        )
+    }
+}
+
 impl<Time> Animated<bool, Time>
 where
     Time: AnimationTime,
@@ -368,7 +390,7 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Easing {
     #[default]
     Linear,
@@ -406,7 +428,7 @@ pub enum Easing {
 }
 
 impl Easing {
-    fn value(self, x: f32) -> f32 {
+    pub fn value(self, x: f32) -> f32 {
         let pi = std::f32::consts::PI;
         match self {
             Easing::Linear => x,

@@ -19,9 +19,9 @@ path = "examples/iced-minimal/src/main.rs"
 name = "iced-demo"
 path = "examples/iced-demo/src/main.rs"
 
-# [[example]]
-# name = "iced-motion"
-# path = "examples/iced-motion/src/main.rs"
+[[example]]
+name = "iced-indicator"
+path = "examples/iced-indicator/src/main.rs"
 
 [dev-dependencies]
 iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
