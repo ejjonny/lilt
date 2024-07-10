@@ -52,7 +52,59 @@ where
     fn interpolated(&self, other: Self, ratio: f32) -> Self {
         match (self, other) {
             (Some(a), Some(b)) => Some(a.interpolated(b, ratio)),
-            _ => other.clone(),
+            _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_f32_interpolation() {
+        let start = 0.0f32;
+        let end = 10.0f32;
+
+        assert_eq!(start.interpolated(end, 0.0), 0.0);
+        assert_eq!(start.interpolated(end, 0.5), 5.0);
+        assert_eq!(start.interpolated(end, 1.0), 10.0);
+        assert_eq!(start.interpolated(end, 0.25), 2.5);
+        assert_eq!(start.interpolated(end, 0.75), 7.5);
+    }
+
+    #[test]
+    fn test_option_f32_interpolation() {
+        let start = Some(0.0f32);
+        let end = Some(10.0f32);
+
+        assert_eq!(start.interpolated(end, 0.0), Some(0.0));
+        assert_eq!(start.interpolated(end, 0.5), Some(5.0));
+        assert_eq!(start.interpolated(end, 1.0), Some(10.0));
+        assert_eq!(start.interpolated(end, 0.25), Some(2.5));
+        assert_eq!(start.interpolated(end, 0.75), Some(7.5));
+    }
+
+    #[test]
+    fn test_option_f32_interpolation_with_none() {
+        let start = Some(0.0f32);
+        let end = None;
+
+        assert_eq!(start.interpolated(end, 0.0), None);
+        assert_eq!(start.interpolated(end, 0.5), None);
+        assert_eq!(start.interpolated(end, 1.0), None);
+
+        let start = None;
+        let end = Some(10.0f32);
+
+        assert_eq!(start.interpolated(end, 0.0), None);
+        assert_eq!(start.interpolated(end, 0.5), None);
+        assert_eq!(start.interpolated(end, 1.0), None);
+
+        let start: Option<f32> = None;
+        let end: Option<f32> = None;
+        assert_eq!(start.interpolated(end, 0.0), None);
+        assert_eq!(start.interpolated(end, 0.5), None);
+        assert_eq!(start.interpolated(end, 1.0), None);
     }
 }

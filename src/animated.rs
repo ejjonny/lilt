@@ -195,7 +195,7 @@ where
 
 impl<T, Time> Animated<T, Time>
 where
-    T: FloatRepresentable + Clone + Eq,
+    T: FloatRepresentable + Clone + PartialEq,
     Time: AnimationTime,
 {
     /// Interpolates to `equal` when the wrapped value matches the provided `value`
@@ -1016,6 +1016,104 @@ mod tests {
         assert_eq!(anim.animation.origin, 10.0); // New origin should be the completed value
         assert_eq!(anim.linear_progress(1500.0), 15.0); // Halfway to new destination
         assert_eq!(anim.linear_progress(2000.0), 20.0); // Completed to new destination
+    }
+
+    #[derive(Clone, PartialEq, Debug)]
+    struct TestInterpolable(f32);
+
+    impl Interpolable for TestInterpolable {
+        fn interpolated(&self, other: Self, t: f32) -> Self {
+            TestInterpolable(self.0 * (1.0 - t) + other.0 * t)
+        }
+    }
+
+    impl FloatRepresentable for TestInterpolable {
+        fn float_value(&self) -> f32 {
+            self.0
+        }
+    }
+
+    #[test]
+    fn test_animate() {
+        let mut anim = Animated::new(TestInterpolable(0.0))
+            .duration(1000.0)
+            .easing(Easing::Linear);
+        anim.transition(TestInterpolable(10.0), 0.0);
+
+        let result = anim.animate(|v| v, 500.0);
+        assert_eq!(result, TestInterpolable(5.0));
+
+        let result = anim.animate(|v| TestInterpolable(v.0 * 2.0), 750.0);
+        assert_eq!(result, TestInterpolable(15.0));
+    }
+
+    #[test]
+    fn test_animate_if_eq() {
+        let mut anim = Animated::new(TestInterpolable(0.0))
+            .duration(1000.0)
+            .easing(Easing::Linear);
+        anim.transition(TestInterpolable(10.0), 0.0);
+
+        let result = anim.animate_if_eq(
+            TestInterpolable(10.0),
+            TestInterpolable(100.0),
+            TestInterpolable(0.0),
+            500.0,
+        );
+        assert_eq!(result, TestInterpolable(50.0));
+
+        let result = anim.animate_if_eq(
+            TestInterpolable(5.0),
+            TestInterpolable(100.0),
+            TestInterpolable(0.0),
+            500.0,
+        );
+        assert_eq!(result, TestInterpolable(0.0));
+    }
+
+    #[test]
+    fn test_animate_bool() {
+        let mut anim = Animated::new(false).duration(1000.0).easing(Easing::Linear);
+        anim.transition(true, 0.0);
+
+        let result = anim.animate_bool(TestInterpolable(0.0), TestInterpolable(10.0), 500.0);
+        assert_eq!(result, TestInterpolable(5.0));
+
+        let result = anim.animate_bool(TestInterpolable(0.0), TestInterpolable(10.0), 1000.0);
+        assert_eq!(result, TestInterpolable(10.0));
+    }
+
+    #[test]
+    fn test_animate_with_interruption() {
+        let mut anim = Animated::new(TestInterpolable(0.0))
+            .duration(1000.0)
+            .easing(Easing::Linear);
+        anim.transition(TestInterpolable(10.0), 0.0);
+
+        let result = anim.animate(|v| v, 500.0);
+        assert_eq!(result, TestInterpolable(5.0));
+
+        anim.transition(TestInterpolable(20.0), 500.0);
+        let result = anim.animate(|v| v, 1000.0);
+        assert_eq!(result, TestInterpolable(12.5));
+
+        let result = anim.animate(|v| v, 1500.0);
+        assert_eq!(result, TestInterpolable(20.0));
+    }
+
+    #[test]
+    fn test_animate_with_custom_easing() {
+        let custom_ease = Easing::Custom(|x| x * x); // Quadratic ease-in
+        let mut anim = Animated::new(TestInterpolable(0.0))
+            .duration(1000.0)
+            .easing(custom_ease);
+        anim.transition(TestInterpolable(10.0), 0.0);
+
+        let result = anim.animate(|v| v, 500.0);
+        assert_eq!(result, TestInterpolable(2.5)); // (0.5^2 * 10)
+
+        let result = anim.animate(|v| v, 750.0);
+        assert_eq!(result, TestInterpolable(5.625)); // (0.75^2 * 10)
     }
 
     impl AnimationTime for f32 {
