@@ -13,7 +13,7 @@ use iced::{Element, Length, Theme};
 use lilt::{Animated, FloatRepresentable};
 use lilt::{Easing, Interpolable};
 use std::f32::consts::PI;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub fn main() -> iced::Result {
     iced::application("Iced Demo", Example::update, Example::view)
@@ -40,6 +40,7 @@ impl FloatRepresentable for IndicatorState {
 
 struct Example {
     spinner_rotation: Animated<bool, Instant>,
+    spinner_rotation_speed: Animated<bool, Instant>,
     indicator_state: Animated<IndicatorState, Instant>,
 }
 
@@ -64,6 +65,12 @@ impl Example {
                 .duration(300.)
                 .repeat_forever()
                 .auto_start(true, time),
+            spinner_rotation_speed: Animated::new(false)
+                .easing(Easing::EaseInOut)
+                .duration(500.)
+                .repeat_forever()
+                .auto_reverse()
+                .auto_start(true, time),
             indicator_state: Animated::new(IndicatorState::Analyzing)
                 .easing(Easing::Custom(|l| {
                     if l < 0.5 {
@@ -78,7 +85,7 @@ impl Example {
 
     fn subscription(&self) -> iced::Subscription<AppMessage> {
         Subscription::batch(vec![
-            iced::time::every(std::time::Duration::from_millis(1000))
+            iced::time::every(std::time::Duration::from_millis(2000))
                 .map(|_| AppMessage::UpdateStatus),
             frames().map(|_| AppMessage::Tick),
         ])
@@ -182,9 +189,15 @@ impl Example {
                                                     backing_color,
                                                     spinning_color: fg_color,
                                                     stroke: height * 0.06,
-                                                    rotation: self
-                                                        .spinner_rotation
-                                                        .animate(|v| if v { 0. } else { 1. }, time),
+                                                    rotation: self.spinner_rotation.animate(
+                                                        |v| if v { 0. } else { 1. },
+                                                        time.checked_add(Duration::from_millis(
+                                                            self.spinner_rotation_speed
+                                                                .animate_bool(0., 150., time)
+                                                                as u64,
+                                                        ))
+                                                        .unwrap_or(time),
+                                                    ),
                                                     opacity: self.indicator_state.animate_eq(
                                                         IndicatorState::Analyzing,
                                                         1.,
