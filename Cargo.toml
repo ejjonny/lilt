@@ -1,6 +1,6 @@
 [package]
 name = "lilt"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 description = "A simple, dependency free library for running interruptable, transition based animations as a function of time."
 repository = "https://github.com/ejjonny/lilt"
