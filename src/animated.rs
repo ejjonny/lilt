@@ -43,7 +43,7 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
-    T: FloatRepresentable + Clone,
+    T: FloatRepresentable + Clone + PartialEq,
     Time: AnimationTime,
 {
     animation: Animation<Time>,
@@ -53,7 +53,7 @@ where
 
 impl<T, Time> Animated<T, Time>
 where
-    T: FloatRepresentable + Clone,
+    T: FloatRepresentable + Clone + Copy + PartialEq,
     Time: AnimationTime,
 {
     /// Creates an animated value with specified animation settings
@@ -62,7 +62,7 @@ where
         animation.settings.duration_ms = duration_ms;
         animation.settings.easing = easing;
         Animated {
-            value: value.clone(),
+            value,
             last_value: value,
             animation,
         }
@@ -70,8 +70,8 @@ where
     /// Creates an animated value with a default animation
     pub fn new(value: T) -> Self {
         Self {
-            value: value.clone(),
-            last_value: value.clone(),
+            value,
+            last_value: value,
             animation: Animation::default(value.float_value()),
         }
     }
@@ -137,14 +137,15 @@ where
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
-        self.last_value = self.value.clone();
-        self.value = new_value.clone();
+        self.last_value = self.value;
+        self.value = new_value;
         self.animation
             .transition(new_value.float_value(), at, false)
     }
     /// Updates the wrapped state & instantaneously completes an animation.
     /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
+        self.value = new_value;
         self.animation.transition(new_value.float_value(), at, true);
     }
     /// Returns whether the animation is complete, given the current time
@@ -168,19 +169,15 @@ where
         // the interrupt float (origin) as an interpolable value and interpolate between
         // that and the current destination.
         let interrupted_range = self.value.float_value() - self.last_value.float_value();
-        let unit_interrupt_value: f32;
-        if interrupted_range == 0. {
-            unit_interrupt_value = 0.;
+        let unit_interrupt_value = if interrupted_range == 0. {
+            0.
         } else {
-            unit_interrupt_value =
-                (self.animation.origin - self.last_value.float_value()) / interrupted_range;
-        }
-        let interrupt_interpolable = map(self.last_value.clone())
-            .interpolated(map(self.value.clone()), unit_interrupt_value);
-        interrupt_interpolable.interpolated(
-            map(self.value.clone()),
-            self.animation.eased_unit_progress(time),
-        )
+            (self.animation.origin - self.last_value.float_value()) / interrupted_range
+        };
+        let interrupt_interpolable =
+            map(self.last_value).interpolated(map(self.value), unit_interrupt_value);
+        interrupt_interpolable
+            .interpolated(map(self.value), self.animation.eased_unit_progress(time))
     }
     // Just for nicer testing
     #[allow(dead_code)]
@@ -195,14 +192,14 @@ where
 
 impl<T, Time> Animated<T, Time>
 where
-    T: FloatRepresentable + Clone + PartialEq,
+    T: FloatRepresentable + Clone + Copy + PartialEq,
     Time: AnimationTime,
 {
     /// Interpolates to `equal` when the wrapped value matches the provided `value`
     /// Otherwise interpolatea towards `default`
-    pub fn animate_if_eq<I: Clone>(&self, value: T, equal: I, default: I, time: Time) -> I
+    pub fn animate_if_eq<I>(&self, value: T, equal: I, default: I, time: Time) -> I
     where
-        I: Interpolable,
+        I: Interpolable + Clone,
     {
         self.animate(
             |v| {
@@ -222,9 +219,9 @@ where
     Time: AnimationTime,
 {
     /// Interpolates any value that implements `Interpolable`, given the current time
-    pub fn animate_bool<I: Clone>(&self, false_value: I, true_value: I, time: Time) -> I
+    pub fn animate_bool<I>(&self, false_value: I, true_value: I, time: Time) -> I
     where
-        I: Interpolable,
+        I: Interpolable + Clone,
     {
         self.animate(
             move |b| {
@@ -283,19 +280,21 @@ where
     }
 
     fn transition(&mut self, destination: f32, time: Time, instantaneous: bool) {
-        if instantaneous {
-            self.transition_time = None;
-            self.origin = destination;
+        if self.destination != destination {
+            if instantaneous {
+                self.origin = destination;
+                self.destination = destination;
+                return;
+            }
+            if self.in_progress(time) {
+                let eased_progress = self.eased_progress(time);
+                self.origin = eased_progress;
+            } else {
+                self.origin = self.destination;
+            }
+            self.transition_time = Some(time);
             self.destination = destination;
-            return;
         }
-        if self.in_progress(time) {
-            self.origin = self.eased_progress(time);
-        } else {
-            self.origin = self.destination.clone();
-        }
-        self.transition_time = Some(time);
-        self.destination = destination;
     }
 
     fn current_settings(&self, time: Time) -> (AnimationSettings, Option<f32>, bool) {
@@ -357,13 +356,13 @@ where
             progress_ms = limited_elapsed % settings.duration_ms;
         }
         let absolute_unit_progress = progress_ms / settings.duration_ms;
-        let unit_progress = if reversing && self.auto_reverse_repetitions {
+
+        if reversing && self.auto_reverse_repetitions {
             // Reversal must be represented in the context of the forward animation in this case
             1. - absolute_unit_progress
         } else {
             absolute_unit_progress
-        };
-        unit_progress
+        }
     }
 
     fn linear_progress(&self, time: Time) -> f32 {
@@ -388,7 +387,7 @@ where
     }
 
     fn in_progress(&self, time: Time) -> bool {
-        f32::max(0., f32::min(1., self.linear_unit_progress(time))) != 1.
+        self.linear_unit_progress(time).clamp(0., 1.) != 1.
     }
 }
 
