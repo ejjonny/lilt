@@ -137,7 +137,9 @@ where
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
-        self.last_value = self.value;
+        if self.value != new_value {
+            self.last_value = self.value;
+        }
         self.value = new_value;
         self.animation
             .transition(new_value.float_value(), at, false)
