@@ -26,4 +26,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run clippy
-        run: cargo clippy -- --deny warnings --verbose
+        run: cargo clippy -- --deny warnings
