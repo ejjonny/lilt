@@ -12,6 +12,7 @@ use iced::{
 use iced::{Element, Length, Theme};
 use lilt::{Animated, FloatRepresentable};
 use lilt::{Easing, Interpolable};
+use std::default::Default;
 use std::f32::consts::PI;
 use std::time::{Duration, Instant};
 
@@ -159,8 +160,10 @@ impl Example {
             .color;
 
         let height = 150.;
-        let mut font = Font::default();
-        font.weight = Weight::Bold;
+        let font = Font {
+            weight: Weight::Bold,
+            ..Default::default()
+        };
         let warn_icon = svg(svg::Handle::from_memory(include_bytes!(
             "../resources/warn.svg"
         )));
@@ -340,15 +343,14 @@ impl Example {
                                     .align_items(iced::Alignment::Center)
                                     .spacing(height * 0.2),
                             )
-                            .style(move |_| {
-                                let mut style = iced::widget::container::Style::default();
-                                style.border = Border {
+                            .style(move |_| iced::widget::container::Style {
+                                border: Border {
                                     color: Color::BLACK,
                                     width: 0.,
                                     radius: [height * 0.5; 4].into(),
-                                };
-                                style.background = Some(Background::Color(capsule_color));
-                                return style;
+                                },
+                                background: Some(Background::Color(capsule_color)),
+                                ..Default::default()
                             })
                             .height(Length::Fixed(height))
                             .width(Length::Shrink),
@@ -358,10 +360,9 @@ impl Example {
                 )
                 .padding(30.),
         ))
-        .style(move |_| {
-            let mut style = iced::widget::container::Style::default();
-            style.background = Some(Background::Color(Color::WHITE));
-            return style;
+        .style(move |_| iced::widget::container::Style {
+            background: Some(Background::Color(Color::WHITE)),
+            ..Default::default()
         })
         .fill()
         .into()

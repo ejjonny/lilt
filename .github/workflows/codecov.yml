@@ -1,16 +1,19 @@
-name: Coverage
+name: coverage
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   coverage:
+    name: check coverage 📋
     runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
+
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
