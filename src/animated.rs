@@ -174,10 +174,12 @@ where
         // the interrupt float (origin) as an interpolable value and interpolate between
         // that and the current destination.
         let interrupted_range = self.value.float_value() - self.last_value.float_value();
-        let unit_interrupt_value = if interrupted_range == 0. {
-            0.
+        let unit_interrupt_value: f32;
+        if interrupted_range == 0. {
+            unit_interrupt_value = 0.;
         } else {
-            (self.animation.origin - self.last_value.float_value()) / interrupted_range
+            unit_interrupt_value =
+                (self.animation.origin - self.last_value.float_value()) / interrupted_range;
         };
         let interrupt_interpolable =
             map(self.last_value).interpolated(map(self.value), unit_interrupt_value);
