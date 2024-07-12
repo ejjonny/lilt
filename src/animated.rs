@@ -139,16 +139,19 @@ where
     pub fn transition(&mut self, new_value: T, at: Time) {
         if self.value != new_value {
             self.last_value = self.value;
+            self.value = new_value;
+            self.animation
+                .transition(new_value.float_value(), at, false)
         }
-        self.value = new_value;
-        self.animation
-            .transition(new_value.float_value(), at, false)
     }
     /// Updates the wrapped state & instantaneously completes an animation.
     /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
-        self.value = new_value;
-        self.animation.transition(new_value.float_value(), at, true);
+        if self.value != new_value {
+            self.last_value = self.value;
+            self.value = new_value;
+            self.animation.transition(new_value.float_value(), at, true);
+        }
     }
     /// Returns whether the animation is complete, given the current time
     pub fn in_progress(&self, time: Time) -> bool {
@@ -778,15 +781,18 @@ mod tests {
         // With a duration of 1.0 & linear timing we should be halfway to our
         // destination at 0.5
         anim.transition(10.0, 0.5);
+        assert_eq!(anim.value, 10.);
         assert_eq!(anim.linear_progress(1.0), 5.0);
         assert_eq!(anim.linear_progress(1.5), 10.0);
 
         // Progression backward
         anim.transition(0.0, 1.5);
+        assert_eq!(anim.value, 0.);
         assert_eq!(anim.linear_progress(2.5), 0.0);
 
         // Progression forward in fractions
         anim.transition(10.0, 3.);
+        assert_eq!(anim.value, 10.);
         assert!(approximately_equal(anim.linear_progress(3.), 0.0));
         assert!(approximately_equal(anim.linear_progress(3.2), 2.0));
         assert!(approximately_equal(anim.linear_progress(3.8), 8.0));
@@ -929,15 +935,19 @@ mod tests {
     fn test_transition_instantaneous() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition_instantaneous(10., 0.);
+        assert_eq!(anim.value, 10.);
         assert_eq!(anim.linear_progress(0.), 10.);
         assert_eq!(anim.linear_progress(1.), 10.);
         anim.transition_instantaneous(0., 1.);
+        assert_eq!(anim.value, 0.);
         assert_eq!(anim.linear_progress(1.), 0.);
         assert_eq!(anim.linear_progress(2.), 0.);
         anim.transition(10., 10.);
+        assert_eq!(anim.value, 10.);
         assert_eq!(anim.linear_progress(10.), 0.);
         assert_eq!(anim.linear_progress(1010.), 10.);
         anim.transition_instantaneous(0., 1010.);
+        assert_eq!(anim.value, 0.);
         assert_eq!(anim.linear_progress(1010.), 0.);
         assert_eq!(anim.linear_progress(1011.), 0.);
         assert_eq!(anim.linear_progress(1020.), 0.);
@@ -987,6 +997,22 @@ mod tests {
         assert_eq!(anim.animation.origin, 10.); // New origin after second interruption
         assert_eq!(anim.linear_progress(1500.0), 5.); // Halfway to final destination
         assert_eq!(anim.linear_progress(2000.0), 0.0); // Completed to final destination
+    }
+
+    #[test]
+    fn test_interrupt_unchanged_destination() {
+        // Interrupts that don't change the destination shouldn't change duration.
+        // Despite the majority of other cases where we have to.
+        let mut anim_a = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        let mut anim_b = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+        anim_a.transition(10., 0.);
+        anim_b.transition(10., 0.);
+
+        anim_a.transition(10., 250.);
+        assert_eq!(anim_a.linear_progress(250.), anim_b.linear_progress(250.));
+        assert_eq!(anim_a.linear_progress(500.), anim_b.linear_progress(500.));
+        assert_eq!(anim_a.linear_progress(750.), anim_b.linear_progress(750.));
+        assert_eq!(anim_a.linear_progress(1000.), anim_b.linear_progress(1000.));
     }
 
     #[test]
