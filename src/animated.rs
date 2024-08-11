@@ -181,7 +181,6 @@ where
         };
         let interrupt_interpolable =
             map(self.last_value).interpolated(map(self.value), unit_interrupt_value);
-        dbg!(self.animation.eased_unit_progress(time));
         interrupt_interpolable
             .interpolated(map(self.value), self.animation.eased_unit_progress(time))
     }
