@@ -33,4 +33,6 @@ iced = { git = "https://github.com/iced-rs/iced", rev = "169667ef1b4fa754ed1edb5
     "tokio",
     "svg",
 ] }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
 gpui = { git = "https://github.com/zed-industries/zed", rev = "5b1ea7eda0bba40e222f7d904ec65e5848f45eee" }

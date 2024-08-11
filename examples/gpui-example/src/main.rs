@@ -1,7 +1,7 @@
-use std::time::Instant;
-
+#[cfg(target_os = "macos")]
 use gpui::*;
 use lilt::*;
+use std::time::Instant;
 
 struct AnimationExample {
     animation: Animated<bool, Instant>,
