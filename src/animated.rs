@@ -922,7 +922,7 @@ mod tests {
 
         // ->
         assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
-        assert_eq!(anim.linear_progress(1000.0), 0.); // 100% forward
+        assert_eq!(anim.linear_progress(1000.0), 10.); // 100% forward
 
         // <-
         assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
@@ -961,7 +961,7 @@ mod tests {
         assert_eq!(anim.linear_progress(250.0), 2.5); // 25% forward
         assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
         assert_eq!(anim.linear_progress(750.0), 7.5); // 75% forward
-        assert_eq!(anim.linear_progress(1000.0), 0.0); // 100% forward
+        assert_eq!(anim.linear_progress(1000.0), 10.0); // 100% forward
 
         assert!(anim.eased_progress(250.0) < anim.linear_progress(250.0));
         assert!(anim.eased_progress(500.0) == anim.linear_progress(500.0));
@@ -1179,7 +1179,7 @@ mod tests {
         // Begin
         assert_eq!(anim.animate_bool(0., 10., 800.), 0.);
         assert_eq!(anim.animate_bool(0., 10., 1000.), 5.);
-        assert_eq!(anim.animate_bool(0., 10., 1200.), 0.);
+        assert_eq!(anim.animate_bool(0., 10., 1200.), 10.);
         assert_eq!(anim.animate_bool(0., 10., 1400.), 5.);
         assert_eq!(anim.animate_bool(0., 10., 1600.), 0.);
         assert_eq!(anim.animate_bool(0., 10., 1800.), 5.);
