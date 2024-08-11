@@ -76,10 +76,11 @@ let animated_opacity = self.animated_enum.animate_if_eq(
 
 ### What's the point?
 
-lilt arose out of a desire for ELM compatible / reactive animations.
-The animations modeled by this library don't require periodic mutation like a 'tick' function - all interim states of the animation are defined when 'transition' is called, & accessed with the current time.
+lilt emerged from the need for ELM compatible / reactive animations.
 
-This means lilt animations are fully independent of frame rate & only need to be computed if they are used while rendering.
+The animations modeled by this library don't require periodic mutation like a 'tick' function - all interim states of the animation are predefined when 'transition' is called, & then accessed while rendering based on the current time.
+
+lilt animations are fully independent of frame rate or tick frequency & only need to be computed if they're used during rendering.
 
 ## [Examples](examples/)
 
