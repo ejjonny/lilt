@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
+iced = { git = "https://github.com/iced-rs/iced", rev = "169667ef1b4fa754ed1edb5fa0e845aede2638fb", features = [
     "canvas",
 ] }
 lilt = { path = "../../" }

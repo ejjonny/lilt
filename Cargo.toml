@@ -23,9 +23,14 @@ path = "examples/iced-demo/src/main.rs"
 name = "iced-indicator"
 path = "examples/iced-indicator/src/main.rs"
 
+[[example]]
+name = "gpui-example"
+path = "examples/gpui-example/src/main.rs"
+
 [dev-dependencies]
-iced = { branch = "master", git = "https://github.com/iced-rs/iced", features = [
+iced = { git = "https://github.com/iced-rs/iced", rev = "169667ef1b4fa754ed1edb5fa0e845aede2638fb", features = [
     "canvas",
     "tokio",
     "svg",
 ] }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "5b1ea7eda0bba40e222f7d904ec65e5848f45eee" }
