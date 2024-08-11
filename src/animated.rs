@@ -181,6 +181,7 @@ where
         };
         let interrupt_interpolable =
             map(self.last_value).interpolated(map(self.value), unit_interrupt_value);
+        dbg!(self.animation.eased_unit_progress(time));
         interrupt_interpolable
             .interpolated(map(self.value), self.animation.eased_unit_progress(time))
     }
@@ -319,7 +320,7 @@ where
         if self.auto_reverse_repetitions {
             let asymmetry = self.asymmetric_settings.unwrap_or(self.settings);
             let combined_durations = self.settings.duration_ms + asymmetry.duration_ms;
-            let first_animation = elapsed % combined_durations - self.settings.duration_ms <= 0.;
+            let first_animation = elapsed % combined_durations - self.settings.duration_ms < 0.;
             if first_animation {
                 elapsed_current = elapsed % combined_durations;
                 settings = self.settings;
