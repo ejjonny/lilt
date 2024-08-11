@@ -909,42 +909,42 @@ mod tests {
         assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
     }
 
-    // #[test]
-    // fn test_asymmetric_auto_reversal() {
-    //     let mut anim = Animated::new(0.)
-    //         .duration(1000.)
-    //         .easing(Easing::Linear)
-    //         .asymmetric_duration(2000.)
-    //         .asymmetric_easing(Easing::EaseInOut)
-    //         .auto_reverse()
-    //         .repeat(1);
+    #[test]
+    fn test_asymmetric_auto_reversal() {
+        let mut anim = Animated::new(0.)
+            .duration(1000.)
+            .easing(Easing::Linear)
+            .asymmetric_duration(2000.)
+            .asymmetric_easing(Easing::EaseInOut)
+            .auto_reverse()
+            .repeat(1);
 
-    //     anim.transition(10.0, 0.0);
+        anim.transition(10.0, 0.0);
 
-    //     // ->
-    //     assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
-    //     assert_eq!(anim.linear_progress(1000.0), 0.); // 100% forward
+        // ->
+        assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
+        assert_eq!(anim.linear_progress(1000.0), 0.); // 100% forward
 
-    //     // <-
-    //     assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
-    //     assert_eq!(anim.linear_progress(2000.0), 5.0); // 50% backwards
-    //     assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
-    //     assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
+        // <-
+        assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
+        assert_eq!(anim.linear_progress(2000.0), 5.0); // 50% backwards
+        assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
+        assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
 
-    //     // assert!(anim.eased_progress(1500.0) > anim.linear_progress(1500.0)); // 25% backwards
-    //     // assert!(anim.eased_progress(2000.0) == anim.linear_progress(2000.0)); // 50% backwards
-    //     // assert!(anim.eased_progress(2500.0) < anim.linear_progress(2500.0)); // 75% backwards
+        // assert!(anim.eased_progress(1500.0) > anim.linear_progress(1500.0)); // 25% backwards
+        // assert!(anim.eased_progress(2000.0) == anim.linear_progress(2000.0)); // 50% backwards
+        // assert!(anim.eased_progress(2500.0) < anim.linear_progress(2500.0)); // 75% backwards
 
-    //     // ->
-    //     assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
-    //     assert_eq!(anim.linear_progress(3500.0), 5.0); // 50% second forward
-    //     assert_eq!(anim.linear_progress(3750.0), 7.5); // 75% second forward
-    //     assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
+        // ->
+        assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
+        assert_eq!(anim.linear_progress(3500.0), 5.0); // 50% second forward
+        assert_eq!(anim.linear_progress(3750.0), 7.5); // 75% second forward
+        assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
 
-    //     assert!(anim.eased_progress(3250.0) == anim.linear_progress(3250.0)); // 25% forward
-    //     assert!(anim.eased_progress(3500.0) == anim.linear_progress(3500.0)); // 50% forward
-    //     assert!(anim.eased_progress(3750.0) == anim.linear_progress(3750.0)); // 75% forward
-    // }
+        assert!(anim.eased_progress(3250.0) == anim.linear_progress(3250.0)); // 25% forward
+        assert!(anim.eased_progress(3500.0) == anim.linear_progress(3500.0)); // 50% forward
+        assert!(anim.eased_progress(3750.0) == anim.linear_progress(3750.0)); // 75% forward
+    }
 
     #[test]
     fn test_auto_reversal() {
@@ -969,14 +969,14 @@ mod tests {
         assert!(anim.eased_progress(750.0) > anim.linear_progress(750.0));
 
         // <-
-        // assert_eq!(anim.linear_progress(1250.0), 7.5); // 25% backwards
-        // assert_eq!(anim.linear_progress(1500.0), 5.0); // 50% backwards
-        // assert_eq!(anim.linear_progress(1750.0), 2.5); // 75% backwards
-        // assert_eq!(anim.linear_progress(2000.0), 0.0); // 100% backwards
+        assert_eq!(anim.linear_progress(1250.0), 7.5); // 25% backwards
+        assert_eq!(anim.linear_progress(1500.0), 5.0); // 50% backwards
+        assert_eq!(anim.linear_progress(1750.0), 2.5); // 75% backwards
+        assert_eq!(anim.linear_progress(2000.0), 0.0); // 100% backwards
 
-        // assert!(anim.eased_progress(1250.0) > anim.linear_progress(1250.0));
-        // assert!(anim.eased_progress(1500.0) == anim.linear_progress(1500.0));
-        // assert!(anim.eased_progress(1750.0) < anim.linear_progress(1750.0));
+        assert!(anim.eased_progress(1250.0) > anim.linear_progress(1250.0));
+        assert!(anim.eased_progress(1500.0) == anim.linear_progress(1500.0));
+        assert!(anim.eased_progress(1750.0) < anim.linear_progress(1750.0));
 
         // ->
         assert_eq!(anim.linear_progress(2250.0), 2.5); // 25% forward
