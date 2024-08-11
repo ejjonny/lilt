@@ -1,4 +1,4 @@
-#[cfg(target_os = "macos")]
+#![cfg(target_os = "macos")]
 use gpui::*;
 use lilt::*;
 use std::time::Instant;
