@@ -772,7 +772,6 @@ mod tests {
         assert_eq!(anim.linear_progress(2500.0), 5.0); // Middle of second forward
         assert_eq!(anim.linear_progress(3500.0), 5.0); // Middle of second reverse
         assert_eq!(anim.linear_progress(4000.0), 0.0); // End at start position
-        dbg!(anim.linear_progress(5000.));
         assert!(!anim.in_progress(5000.));
     }
 
