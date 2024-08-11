@@ -58,7 +58,7 @@ impl Example {
     fn view(&self) -> Element<AppMessage> {
         let now = std::time::Instant::now();
         Column::new()
-            .align_items(iced::Alignment::Center)
+            .align_x(iced::Alignment::Center)
             .push(vertical_space())
             .push(
                 Button::new(

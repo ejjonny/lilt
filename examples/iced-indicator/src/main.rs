@@ -1,3 +1,4 @@
+use iced::border::Radius;
 use iced::font::Weight;
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::path::lyon_path::geom::Angle;
@@ -340,14 +341,14 @@ impl Example {
                                             ),
                                     )
                                     .push(vertical_space().width(Length::Fixed(height * 0.3)))
-                                    .align_items(iced::Alignment::Center)
+                                    .align_y(iced::Alignment::Center)
                                     .spacing(height * 0.2),
                             )
                             .style(move |_| iced::widget::container::Style {
                                 border: Border {
                                     color: Color::BLACK,
                                     width: 0.,
-                                    radius: [height * 0.5; 4].into(),
+                                    radius: Radius::new(height * 0.5),
                                 },
                                 background: Some(Background::Color(capsule_color)),
                                 ..Default::default()
@@ -364,7 +365,6 @@ impl Example {
             background: Some(Background::Color(Color::WHITE)),
             ..Default::default()
         })
-        .fill()
         .into()
     }
 }

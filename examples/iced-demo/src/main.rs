@@ -103,7 +103,7 @@ impl Example {
                                     b.animate_bool(10., 300., time),
                                 ))
                                 .style(move |_| {
-                                    iced::widget::container::Style::default().with_background(
+                                    iced::widget::container::Style::default().background(
                                         Color::from_rgb8(
                                             b.animate_bool(0., 108., time) as u8,
                                             b.animate_bool(0., 74., time) as u8,
@@ -116,7 +116,7 @@ impl Example {
                             .collect::<Vec<_>>(),
                     )
                     .height(Length::Fill)
-                    .align_items(iced::Alignment::Center),
+                    .align_y(iced::Alignment::Center),
             )
             .push(
                 Column::new()
