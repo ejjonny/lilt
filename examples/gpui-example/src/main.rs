@@ -5,6 +5,7 @@ fn main() {
 
 #[cfg(target_os = "macos")]
 mod main_macos;
+#[cfg(target_os = "macos")]
 fn main() {
     main_macos::main()
 }
