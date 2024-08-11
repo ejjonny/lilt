@@ -351,7 +351,7 @@ where
         let complete = !self.repeat_forever && elapsed >= total_duration;
         let repeat = elapsed_current / settings.duration_ms;
         let progress = if complete { 1. } else { repeat % 1. };
-        if auto_reversing {
+        if auto_reversing && !complete {
             Progress {
                 linear_unit_progress: 1. - progress,
                 eased_unit_progress: settings.easing.value(1. - progress),
@@ -931,9 +931,9 @@ mod tests {
         assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
         assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
 
-        // assert!(anim.eased_progress(1500.0) > anim.linear_progress(1500.0)); // 25% backwards
-        // assert!(anim.eased_progress(2000.0) == anim.linear_progress(2000.0)); // 50% backwards
-        // assert!(anim.eased_progress(2500.0) < anim.linear_progress(2500.0)); // 75% backwards
+        assert!(anim.eased_progress(1500.0) > anim.linear_progress(1500.0)); // 25% backwards
+        assert!(anim.eased_progress(2000.0) == anim.linear_progress(2000.0)); // 50% backwards
+        assert!(anim.eased_progress(2500.0) < anim.linear_progress(2500.0)); // 75% backwards
 
         // ->
         assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
@@ -1168,6 +1168,32 @@ mod tests {
 
         let result = anim.animate(|v| v, 750.0);
         assert_eq!(result, 5.625); // (0.75^2 * 10)
+    }
+
+    #[test]
+    fn test_no_change_after_completion() {
+        let anim = Animated::new(false)
+            .duration(400.)
+            .auto_start(true, 0.)
+            .repeat(2)
+            .auto_reverse();
+        // Begin
+        assert_eq!(anim.animate_bool(0., 10., 800.), 0.);
+        assert_eq!(anim.animate_bool(0., 10., 1000.), 5.);
+        assert_eq!(anim.animate_bool(0., 10., 1200.), 0.);
+        assert_eq!(anim.animate_bool(0., 10., 1400.), 5.);
+        assert_eq!(anim.animate_bool(0., 10., 1600.), 0.);
+        assert_eq!(anim.animate_bool(0., 10., 1800.), 5.);
+
+        // Completion
+        assert_eq!(anim.animate_bool(0., 10., 2000.), 10.);
+
+        // No changes after completion
+        assert_eq!(anim.animate_bool(0., 10., 2200.), 10.);
+        assert_eq!(anim.animate_bool(0., 10., 2400.), 10.);
+        assert_eq!(anim.animate_bool(0., 10., 2600.), 10.);
+        assert_eq!(anim.animate_bool(0., 10., 2800.), 10.);
+        assert_eq!(anim.animate_bool(0., 10., 3000.), 10.);
     }
 
     impl AnimationTime for f32 {
