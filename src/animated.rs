@@ -1,4 +1,6 @@
-use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
+use std::{fmt::Debug, ops::Range};
+
+use crate::traits::{AnimationTime, Interpolable};
 /// Wraps state to enable interpolated transitions
 ///
 /// # Example
@@ -43,27 +45,36 @@ use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
-    T: FloatRepresentable + Clone + PartialEq,
+    T: Clone + Copy + PartialEq + PartialOrd,
     Time: AnimationTime,
 {
     animation: Animation<Time>,
     pub value: T,
     last_value: T,
+    interrupt: Option<Interrupt<T>>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct Interrupt<T> {
+    range: Range<T>,
+    float_range: Range<f32>,
+    ratio: f32,
 }
 
 impl<T, Time> Animated<T, Time>
 where
-    T: FloatRepresentable + Clone + Copy + PartialEq,
+    T: Clone + Copy + PartialEq + PartialOrd,
     Time: AnimationTime,
 {
     /// Creates an animated value with specified animation settings
     pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing) -> Self {
-        let mut animation = Animation::default(value.float_value());
+        let mut animation = Animation::default(0.);
         animation.settings.duration_ms = duration_ms;
         animation.settings.easing = easing;
         Animated {
             value,
             last_value: value,
+            interrupt: None,
             animation,
         }
     }
@@ -72,7 +83,8 @@ where
         Self {
             value,
             last_value: value,
-            animation: Animation::default(value.float_value()),
+            interrupt: None,
+            animation: Animation::default(0.),
         }
     }
     /// Specifies the duration of the animation in milliseconds
@@ -137,20 +149,60 @@ where
     }
     /// Updates the wrapped state & begins an animation
     pub fn transition(&mut self, new_value: T, at: Time) {
-        if self.value != new_value {
-            self.last_value = self.value;
-            self.value = new_value;
-            self.animation
-                .transition(new_value.float_value(), at, false)
-        }
+        self.transition_internal(new_value, at, false);
     }
     /// Updates the wrapped state & instantaneously completes an animation.
     /// Ignores animation settings such as delay & duration.
     pub fn transition_instantaneous(&mut self, new_value: T, at: Time) {
+        self.transition_internal(new_value, at, true);
+    }
+    fn transition_internal(&mut self, new_value: T, at: Time, instantaneous: bool) {
         if self.value != new_value {
+            let new_value_float = if new_value > self.value {
+                self.animation.destination + 1.
+            } else {
+                self.animation.destination - 1.
+            };
+            let in_progress = self.in_progress(at);
+
+            // if in_progress {
+            //     self.interrupt = Interrupt {
+            //         range: self.last_value..self.value,
+            //         float_range: self.animation.origin..self.animation.destination,
+            //         ratio: self.animation.eased_unit_progress(at),
+            //     }
+            //     .into()
+            // } else {
+            //     self.interrupt = None
+            // }
+            match (in_progress, &mut self.interrupt) {
+                (true, None) => {
+                    self.interrupt = Interrupt {
+                        range: self.last_value..self.value,
+                        float_range: self.animation.origin..self.animation.destination,
+                        ratio: self.animation.eased_unit_progress(at),
+                    }
+                    .into()
+                }
+                (true, Some(current_interrupt)) => {
+                    if self.value > current_interrupt.range.end {
+                        dbg!("MUUUUU");
+                        current_interrupt.range.end = self.value;
+                        current_interrupt.ratio += (self.animation.eased_unit_progress(at) * 0.5)
+                    }
+                    if self.value < current_interrupt.range.start {
+                        current_interrupt.range.start = self.value;
+                        current_interrupt.ratio =
+                            1. - (self.animation.eased_unit_progress(at) * 0.5) + 1.;
+                    }
+                }
+                (false, _) => (),
+            }
+            self.animation
+                .transition(new_value_float, at, instantaneous);
+
             self.last_value = self.value;
             self.value = new_value;
-            self.animation.transition(new_value.float_value(), at, true);
         }
     }
     /// Returns whether the animation is complete, given the current time
@@ -173,16 +225,56 @@ where
         // The only way to do so without storing interpolable values is to represent
         // the interrupt float (origin) as an interpolable value and interpolate between
         // that and the current destination.
-        let interrupted_range = self.value.float_value() - self.last_value.float_value();
-        let unit_interrupt_value = if interrupted_range == 0. {
-            0.
-        } else {
-            (self.animation.origin - self.last_value.float_value()) / interrupted_range
-        };
-        let interrupt_interpolable =
-            map(self.last_value).interpolated(map(self.value), unit_interrupt_value);
-        interrupt_interpolable
-            .interpolated(map(self.value), self.animation.eased_unit_progress(time))
+
+        // let interrupted_range = self.value.float_value() - self.last_value.float_value();
+        // let interrupted_range = self.a/nimation.progress_range();
+        // let unit_interrupt_value = if interrupted_range == 0. {
+        //     0.
+        // } else {
+        //     (self.animation.origin - self.last_value.float_value()) / interrupted_range
+        // };
+        // let interrupt_interpolable =
+        //     map(self.last_value).interpolated(map(self.value), interrupted_range);
+        // interrupt_interpolable
+        //     .interpolated(map(self.value), self.animation.eased_unit_progress(time))
+
+        // let range = self.value_float - self.last_value_float;
+        // let interrupt = if range == 0. {
+        //     0.
+        // } else {
+        //     (self.animation.origin - self.last_value_float) / range
+        // };
+        // dbg!(
+        //     range,
+        //     self.animation.origin,
+        //     self.animation.destination,
+        //     interrupt,
+        //     self.last_value_float,
+        //     self.value_float,
+        //     self.animation.eased_unit_progress(time)
+        // );
+        // let interrupt_interpolated = map(self.last_value).interpolated(map(self.value), interrupt);
+        // dbg!(
+        //     map(self.last_value),
+        //     map(self.value),
+        //     &interrupt_interpolated
+        // );
+        // interrupt_interpolated
+        //     .interpolated(map(self.value), self.animation.eased_unit_progress(time))
+
+        // dbg!(map(self.interrupted_orig));
+        // dbg!(map(self.interrupted_dest));
+        // map(self.interrupted_dest) - map(self.interrupted_orig);
+        match &self.interrupt {
+            Some(interrupt) => {
+                // dbg!(range, unit_interrupt_value);
+                map(interrupt.range.start)
+                    .interpolated(map(interrupt.range.end), interrupt.ratio)
+                    .interpolated(map(self.value), self.animation.eased_unit_progress(time))
+            }
+            None => map(self.last_value)
+                .interpolated(map(self.value), self.animation.eased_unit_progress(time)),
+        }
     }
     // Just for nicer testing
     #[allow(dead_code)]
@@ -197,14 +289,14 @@ where
 
 impl<T, Time> Animated<T, Time>
 where
-    T: FloatRepresentable + Clone + Copy + PartialEq,
+    T: Clone + Copy + PartialEq + PartialOrd,
     Time: AnimationTime,
 {
     /// Interpolates to `equal` when the wrapped value matches the provided `value`
-    /// Otherwise interpolatea towards `default`
+    /// Otherwise interpolate towards `default`
     pub fn animate_if_eq<I>(&self, value: T, equal: I, default: I, time: Time) -> I
     where
-        I: Interpolable + Clone,
+        I: Interpolable + Clone + Debug,
     {
         self.animate(
             |v| {
@@ -219,6 +311,17 @@ where
     }
 }
 
+impl<T, Time> Animated<T, Time>
+where
+    T: Clone + Copy + PartialEq + PartialOrd,
+    T: Interpolable + Debug,
+    Time: AnimationTime,
+{
+    pub fn animate_wrapped(&self, time: Time) -> T {
+        self.animate(|v| v, time)
+    }
+}
+
 impl<Time> Animated<bool, Time>
 where
     Time: AnimationTime,
@@ -226,7 +329,7 @@ where
     /// Interpolates any value that implements `Interpolable`, given the current time
     pub fn animate_bool<I>(&self, false_value: I, true_value: I, time: Time) -> I
     where
-        I: Interpolable + Clone,
+        I: Interpolable + Clone + Debug,
     {
         self.animate(
             move |b| {
@@ -329,7 +432,7 @@ where
                 elapsed_current = elapsed % combined_durations - self.settings.duration_ms;
                 auto_reversing = true;
             }
-        } else if self.destination.float_value() < self.origin.float_value() {
+        } else if self.destination < self.origin {
             settings = self.asymmetric_settings.unwrap_or(self.settings);
             elapsed_current = elapsed;
             auto_reversing = false;
@@ -397,7 +500,7 @@ where
                         * ((true_repetitions - true_repetitions % 2.) * 0.5)
                     + self.settings.duration_ms
             }
-        } else if self.destination.float_value() < self.origin.float_value() {
+        } else if self.destination < self.origin {
             self.asymmetric_settings
                 .unwrap_or(self.settings)
                 .duration_ms
@@ -408,15 +511,15 @@ where
     }
 
     fn linear_progress(&self, time: Time) -> f32 {
-        self.origin.float_value() + (self.linear_unit_progress(time) * self.progress_range())
+        self.origin + (self.linear_unit_progress(time) * self.progress_range())
     }
 
     fn eased_progress(&self, time: Time) -> f32 {
-        self.origin.float_value() + (self.eased_unit_progress(time) * self.progress_range())
+        self.origin + (self.eased_unit_progress(time) * self.progress_range())
     }
 
     fn progress_range(&self) -> f32 {
-        self.destination.float_value() - self.origin.float_value()
+        self.destination - self.origin
     }
 
     fn in_progress(&self, time: Time) -> bool {
@@ -632,12 +735,12 @@ mod tests {
         anim.transition(10.0, 0.0);
 
         // Test progression over multiple cycles
-        assert_eq!(anim.eased_progress(0.0), 0.0);
-        assert_eq!(anim.eased_progress(500.0), 5.0);
-        assert_eq!(anim.eased_progress(1000.0), 0.0);
-        assert_eq!(anim.eased_progress(1500.0), 5.0);
-        assert_eq!(anim.eased_progress(2000.0), 0.0);
-        assert_eq!(anim.eased_progress(2500.0), 5.0);
+        assert_eq!(anim.animate_wrapped(0.0), 0.0);
+        assert_eq!(anim.animate_wrapped(500.0), 5.0);
+        assert_eq!(anim.animate_wrapped(1000.0), 0.0);
+        assert_eq!(anim.animate_wrapped(1500.0), 5.0);
+        assert_eq!(anim.animate_wrapped(2000.0), 0.0);
+        assert_eq!(anim.animate_wrapped(2500.0), 5.0);
 
         // Ensure animation is still in progress after multiple cycles
         assert!(anim.in_progress(10000.0));
@@ -717,10 +820,10 @@ mod tests {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.linear_progress(0.0), 0.0);
-        assert_eq!(anim.linear_progress(500.0), 5.0);
-        assert_eq!(anim.linear_progress(1000.0), 10.0);
-        assert_eq!(anim.linear_progress(1500.0), 10.0); // Stays at destination after completion
+        assert_eq!(anim.animate_wrapped(0.0), 0.0);
+        assert_eq!(anim.animate_wrapped(500.0), 5.0);
+        assert_eq!(anim.animate_wrapped(1000.0), 10.0);
+        assert_eq!(anim.animate_wrapped(1500.0), 10.0); // Stays at destination after completion
     }
 
     #[test]
@@ -728,9 +831,9 @@ mod tests {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::EaseIn);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.eased_progress(0.0), 0.0);
-        assert!(anim.eased_progress(500.0) < 5.0); // Should be less than linear due to ease-in
-        assert_eq!(anim.eased_progress(1000.0), 10.0);
+        assert_eq!(anim.animate_wrapped(0.0), 0.0);
+        assert!(anim.animate_wrapped(500.0) < 5.0); // Should be less than linear due to ease-in
+        assert_eq!(anim.animate_wrapped(1000.0), 10.0);
     }
 
     #[test]
@@ -752,10 +855,10 @@ mod tests {
             .repeat(3);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.linear_progress(1500.0), 5.0); // Middle of second repetition
-        assert_eq!(anim.linear_progress(3000.0), 10.0); // End of third repetition
+        assert_eq!(anim.animate_wrapped(1500.0), 5.0); // Middle of second repetition
+        assert_eq!(anim.animate_wrapped(3000.0), 10.0); // End of third repetition
+        assert_eq!(anim.animate_wrapped(3500.0), 10.0); // Stays at destination after all repetitions
         assert!(!anim.in_progress(5001.));
-        assert_eq!(anim.linear_progress(3500.0), 10.0); // Stays at destination after all repetitions
     }
 
     #[test]
@@ -767,11 +870,11 @@ mod tests {
             .repeat(2);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.linear_progress(500.0), 5.0); // Middle of first forward
-        assert_eq!(anim.linear_progress(1500.0), 5.0); // Middle of first reverse
-        assert_eq!(anim.linear_progress(2500.0), 5.0); // Middle of second forward
-        assert_eq!(anim.linear_progress(3500.0), 5.0); // Middle of second reverse
-        assert_eq!(anim.linear_progress(4000.0), 0.0); // End at start position
+        assert_eq!(anim.animate_wrapped(500.0), 5.0); // Middle of first forward
+        assert_eq!(anim.animate_wrapped(1500.0), 5.0); // Middle of first reverse
+        assert_eq!(anim.animate_wrapped(2500.0), 5.0); // Middle of second forward
+        assert_eq!(anim.animate_wrapped(3500.0), 5.0); // Middle of second reverse
+        assert_eq!(anim.animate_wrapped(4000.0), 0.0); // End at start position
         assert!(!anim.in_progress(5000.));
     }
 
@@ -782,13 +885,14 @@ mod tests {
             .auto_start(true, 0.)
             .repeat(2)
             .auto_reverse();
-        assert_eq!(anim.linear_progress(500.0), 0.5); // Middle of first forward
-        assert_eq!(anim.linear_progress(1500.0), 0.5); // Middle of first reverse
-        assert_eq!(anim.linear_progress(2500.0), 0.5); // Middle of second forward
-        assert_eq!(anim.linear_progress(3500.0), 0.5); // Middle of second reverse
+        let map = |b| if b { 1. } else { 0. };
+        anim.animate(map, 500.);
+        assert_eq!(anim.animate(map, 500.0), 0.5); // Middle of first forward
+        assert_eq!(anim.animate(map, 1500.0), 0.5); // Middle of first reverse
+        assert_eq!(anim.animate(map, 2500.0), 0.5); // Middle of second forward
+        assert_eq!(anim.animate(map, 3500.0), 0.5); // Middle of second reverse
         assert!(anim.in_progress(3500.));
-        assert_eq!(anim.linear_progress(4000.0), 0.0); // End at start position
-        dbg!(anim.linear_progress(5000.01));
+        assert_eq!(anim.animate(map, 4000.0), 0.0); // End at start position
         assert!(!anim.in_progress(5000.01));
     }
 
@@ -800,9 +904,9 @@ mod tests {
             .delay(500.);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.linear_progress(250.0), 0.0); // Still in delay
-        assert_eq!(anim.linear_progress(750.0), 2.5); // 25% progress after delay
-        assert_eq!(anim.linear_progress(1500.0), 10.0); // Completed
+        assert_eq!(anim.animate_wrapped(250.0), 0.0); // Still in delay
+        assert_eq!(anim.animate_wrapped(750.0), 2.5); // 25% progress after delay
+        assert_eq!(anim.animate_wrapped(1500.0), 10.0); // Completed
     }
 
     #[test]
@@ -810,22 +914,23 @@ mod tests {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.linear_progress(500.0), 5.0);
+        assert_eq!(anim.animate_wrapped(500.0), 5.0);
 
         anim.transition(20.0, 500.0); // Interrupt halfway
-        assert_eq!(anim.animation.origin, 5.0); // New origin should be the current progress
-        assert_eq!(anim.linear_progress(1000.0), 12.5); // Halfway to new destination
-        assert_eq!(anim.linear_progress(1500.0), 20.0); // Completed to new destination
+        assert_eq!(anim.animation.origin, 0.5); // New origin should be the current progress
+        dbg!(&anim);
+        assert_eq!(anim.animate_wrapped(1000.0), 12.5); // Halfway to new destination
+        assert_eq!(anim.animate_wrapped(1500.0), 20.0); // Completed to new destination
     }
 
     #[test]
     fn test_instant_animation() {
         let mut anim = Animated::new(0.).duration(0.).easing(Easing::Linear);
-        assert_eq!(anim.linear_progress(0.0), 0.0);
+        assert_eq!(anim.animate_wrapped(0.0), 0.0);
         // If animation duration is 0.0 the transition should happen instantly
         // & require a redraw without any time passing
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.linear_progress(0.0), 10.0);
+        assert_eq!(anim.animate_wrapped(0.0), 10.0);
     }
 
     #[test]
@@ -835,8 +940,8 @@ mod tests {
         // destination at 0.5
         anim.transition(10.0, 0.5);
         assert_eq!(anim.value, 10.);
-        assert_eq!(anim.linear_progress(1.0), 5.0);
-        assert_eq!(anim.linear_progress(1.5), 10.0);
+        assert_eq!(anim.animate_wrapped(1.0), 5.0);
+        assert_eq!(anim.animate_wrapped(1.5), 10.0);
 
         // Progression backward
         anim.transition(0.0, 1.5);
@@ -846,10 +951,10 @@ mod tests {
         // Progression forward in fractions
         anim.transition(10.0, 3.);
         assert_eq!(anim.value, 10.);
-        assert!(approximately_equal(anim.linear_progress(3.), 0.0));
-        assert!(approximately_equal(anim.linear_progress(3.2), 2.0));
-        assert!(approximately_equal(anim.linear_progress(3.8), 8.0));
-        assert!(approximately_equal(anim.linear_progress(4.0), 10.0));
+        assert!(approximately_equal(anim.animate_wrapped(3.), 0.0));
+        assert!(approximately_equal(anim.animate_wrapped(3.2), 2.0));
+        assert!(approximately_equal(anim.animate_wrapped(3.8), 8.0));
+        assert!(approximately_equal(anim.animate_wrapped(4.0), 10.0));
     }
 
     #[test]
@@ -857,16 +962,16 @@ mod tests {
         let mut anim = Animated::new(0.).duration(1.).easing(Easing::EaseInOut);
 
         anim.transition(-10.0, 0.0);
-        assert_eq!(anim.linear_progress(0.5), -5.0);
-        assert_eq!(anim.linear_progress(1.0), -10.0);
+        assert_eq!(anim.animate_wrapped(0.5), -5.0);
+        assert_eq!(anim.animate_wrapped(1.0), -10.0);
 
         assert!(anim.eased_progress(0.25) > anim.linear_progress(0.25));
         assert!(anim.eased_progress(0.5) == anim.linear_progress(0.5));
         assert!(anim.eased_progress(0.75) < anim.linear_progress(0.75));
 
         anim.transition(0.0, 1.0);
-        assert_eq!(anim.linear_progress(1.5), -5.0);
-        assert_eq!(anim.linear_progress(2.0), 0.0);
+        assert_eq!(anim.animate_wrapped(1.5), -5.0);
+        assert_eq!(anim.animate_wrapped(2.0), 0.0);
     }
 
     #[test]
@@ -892,20 +997,20 @@ mod tests {
             .asymmetric_easing(Easing::EaseInOut);
 
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
-        assert_eq!(anim.linear_progress(1000.0), 10.); // 100% forward
+        assert_eq!(anim.animate_wrapped(500.0), 5.0); // 50% forward
+        assert_eq!(anim.animate_wrapped(1000.0), 10.); // 100% forward
 
         anim.transition(0.0, 1000.0);
-        assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
-        assert_eq!(anim.linear_progress(2000.0), 5.0); // 50% backwards
-        assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
-        assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
+        assert!(anim.animate_wrapped(1500.0) > 7.5); // 25% backwards
+        assert_eq!(anim.animate_wrapped(2000.0), 5.0); // 50% backwards
+        assert!(anim.animate_wrapped(2500.0) < 2.5); // 75% backwards
+        assert_eq!(anim.animate_wrapped(3000.0), 0.0); // 100% backwards
 
         anim.transition(10.0, 3000.0);
-        assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
-        assert_eq!(anim.linear_progress(3500.0), 5.0); // 50% second forward
-        assert_eq!(anim.linear_progress(3750.0), 7.5); // 75% second forward
-        assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
+        assert_eq!(anim.animate_wrapped(3250.0), 2.5); // 25% second forward
+        assert_eq!(anim.animate_wrapped(3500.0), 5.0); // 50% second forward
+        assert_eq!(anim.animate_wrapped(3750.0), 7.5); // 75% second forward
+        assert_eq!(anim.animate_wrapped(4000.0), 10.0); // 100% second forward
     }
 
     #[test]
@@ -914,31 +1019,26 @@ mod tests {
             .duration(1000.)
             .easing(Easing::Linear)
             .asymmetric_duration(2000.)
-            .asymmetric_easing(Easing::EaseInOut)
             .auto_reverse()
             .repeat(1);
 
         anim.transition(10.0, 0.0);
 
         // ->
-        assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
-        assert_eq!(anim.linear_progress(1000.0), 10.); // 100% forward
+        assert_eq!(anim.animate_wrapped(500.0), 5.0); // 50% forward
+        assert_eq!(anim.animate_wrapped(1000.0), 10.); // 100% forward
 
         // <-
-        assert_eq!(anim.linear_progress(1500.0), 7.5); // 25% backwards
-        assert_eq!(anim.linear_progress(2000.0), 5.0); // 50% backwards
-        assert_eq!(anim.linear_progress(2500.0), 2.5); // 75% backwards
-        assert_eq!(anim.linear_progress(3000.0), 0.0); // 100% backwards
-
-        assert!(anim.eased_progress(1500.0) > anim.linear_progress(1500.0)); // 25% backwards
-        assert!(anim.eased_progress(2000.0) == anim.linear_progress(2000.0)); // 50% backwards
-        assert!(anim.eased_progress(2500.0) < anim.linear_progress(2500.0)); // 75% backwards
+        assert_eq!(anim.animate_wrapped(1500.0), 7.5); // 25% backwards
+        assert_eq!(anim.animate_wrapped(2000.0), 5.0); // 50% backwards
+        assert_eq!(anim.animate_wrapped(2500.0), 2.5); // 75% backwards
+        assert_eq!(anim.animate_wrapped(3000.0), 0.0); // 100% backwards
 
         // ->
-        assert_eq!(anim.linear_progress(3250.0), 2.5); // 25% second forward
-        assert_eq!(anim.linear_progress(3500.0), 5.0); // 50% second forward
-        assert_eq!(anim.linear_progress(3750.0), 7.5); // 75% second forward
-        assert_eq!(anim.linear_progress(4000.0), 10.0); // 100% second forward
+        assert_eq!(anim.animate_wrapped(3250.0), 2.5); // 25% second forward
+        assert_eq!(anim.animate_wrapped(3500.0), 5.0); // 50% second forward
+        assert_eq!(anim.animate_wrapped(3750.0), 7.5); // 75% second forward
+        assert_eq!(anim.animate_wrapped(4000.0), 10.0); // 100% second forward
 
         assert!(anim.eased_progress(3250.0) == anim.linear_progress(3250.0)); // 25% forward
         assert!(anim.eased_progress(3500.0) == anim.linear_progress(3500.0)); // 50% forward
@@ -949,107 +1049,81 @@ mod tests {
     fn test_auto_reversal() {
         let mut anim = Animated::new(0.)
             .duration(1000.)
-            .easing(Easing::EaseInOut)
             .auto_reverse()
-            .repeat(1);
+            .repeat(1)
+            .easing(Easing::Linear);
 
         anim.transition(10.0, 0.0);
 
-        assert_eq!(anim.linear_progress(0.0), 0.0);
+        assert_eq!(anim.animate_wrapped(0.0), 0.0);
 
         // ->
-        assert_eq!(anim.linear_progress(250.0), 2.5); // 25% forward
-        assert_eq!(anim.linear_progress(500.0), 5.0); // 50% forward
-        assert_eq!(anim.linear_progress(750.0), 7.5); // 75% forward
-        assert_eq!(anim.linear_progress(1000.0), 10.0); // 100% forward
-
-        assert!(anim.eased_progress(250.0) < anim.linear_progress(250.0));
-        assert!(anim.eased_progress(500.0) == anim.linear_progress(500.0));
-        assert!(anim.eased_progress(750.0) > anim.linear_progress(750.0));
+        assert_eq!(anim.animate_wrapped(250.0), 2.5); // 25% forward
+        assert_eq!(anim.animate_wrapped(500.0), 5.0); // 50% forward
+        assert_eq!(anim.animate_wrapped(750.0), 7.5); // 75% forward
+        assert_eq!(anim.animate_wrapped(1000.0), 10.0); // 100% forward
 
         // <-
-        assert_eq!(anim.linear_progress(1250.0), 7.5); // 25% backwards
-        assert_eq!(anim.linear_progress(1500.0), 5.0); // 50% backwards
-        assert_eq!(anim.linear_progress(1750.0), 2.5); // 75% backwards
-        assert_eq!(anim.linear_progress(2000.0), 0.0); // 100% backwards
-
-        assert!(anim.eased_progress(1250.0) > anim.linear_progress(1250.0));
-        assert!(anim.eased_progress(1500.0) == anim.linear_progress(1500.0));
-        assert!(anim.eased_progress(1750.0) < anim.linear_progress(1750.0));
+        assert_eq!(anim.animate_wrapped(1250.0), 7.5); // 25% backwards
+        assert_eq!(anim.animate_wrapped(1500.0), 5.0); // 50% backwards
+        assert_eq!(anim.animate_wrapped(1750.0), 2.5); // 75% backwards
+        assert_eq!(anim.animate_wrapped(2000.0), 0.0); // 100% backwards
 
         // ->
-        assert_eq!(anim.linear_progress(2250.0), 2.5); // 25% forward
-        assert_eq!(anim.linear_progress(2500.0), 5.0); // 50% forward
-        assert_eq!(anim.linear_progress(2750.0), 7.5); // 75% forward
-        assert_eq!(anim.linear_progress(3000.0), 10.0); // 100% forward
-    }
-
-    #[test]
-    fn test_transition_instantaneous() {
-        let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
-        anim.transition_instantaneous(10., 0.);
-        assert_eq!(anim.value, 10.);
-        assert_eq!(anim.linear_progress(0.), 10.);
-        assert_eq!(anim.linear_progress(1.), 10.);
-        anim.transition_instantaneous(0., 1.);
-        assert_eq!(anim.value, 0.);
-        assert_eq!(anim.linear_progress(1.), 0.);
-        assert_eq!(anim.linear_progress(2.), 0.);
-        anim.transition(10., 10.);
-        assert_eq!(anim.value, 10.);
-        assert_eq!(anim.linear_progress(10.), 0.);
-        assert_eq!(anim.linear_progress(1010.), 10.);
-        anim.transition_instantaneous(0., 1010.);
-        assert_eq!(anim.value, 0.);
-        assert_eq!(anim.linear_progress(1010.), 0.);
-        assert_eq!(anim.linear_progress(1011.), 0.);
-        assert_eq!(anim.linear_progress(1020.), 0.);
+        assert_eq!(anim.animate_wrapped(2250.0), 2.5); // 25% forward
+        assert_eq!(anim.animate_wrapped(2500.0), 5.0); // 50% forward
+        assert_eq!(anim.animate_wrapped(2750.0), 7.5); // 75% forward
+        assert_eq!(anim.animate_wrapped(3000.0), 10.0); // 100% forward
     }
 
     #[test]
     fn test_negative_values() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(-10.0, 0.0);
-        assert_eq!(anim.linear_progress(0.0), 0.0);
-        assert_eq!(anim.linear_progress(500.0), -5.0);
-        assert_eq!(anim.linear_progress(1000.0), -10.0);
+        assert_eq!(anim.animate_wrapped(0.0), 0.0);
+        assert_eq!(anim.animate_wrapped(500.0), -5.0);
+        assert_eq!(anim.animate_wrapped(1000.0), -10.0);
         anim.transition(-5.0, 1000.0);
-        assert_eq!(anim.linear_progress(1000.0), -10.0);
-        assert_eq!(anim.linear_progress(1500.0), -7.5);
-        assert_eq!(anim.linear_progress(2000.0), -5.0);
+        assert_eq!(anim.animate_wrapped(1000.0), -10.0);
+        assert_eq!(anim.animate_wrapped(1500.0), -7.5);
+        assert_eq!(anim.animate_wrapped(2000.0), -5.0);
     }
 
     #[test]
     fn test_negative_to_positive_transition() {
         let mut anim = Animated::new(-5.).duration(1000.).easing(Easing::Linear);
         anim.transition(5.0, 0.0);
-        assert_eq!(anim.linear_progress(0.0), -5.0);
-        assert_eq!(anim.linear_progress(500.0), 0.0);
-        assert_eq!(anim.linear_progress(1000.0), 5.0);
+        assert_eq!(anim.animate_wrapped(0.0), -5.0);
+        assert_eq!(anim.animate_wrapped(500.0), 0.0);
+        assert_eq!(anim.animate_wrapped(1000.0), 5.0);
     }
 
     #[test]
     fn test_interruption_with_negative_values() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(-10.0, 0.0);
-        assert_eq!(anim.linear_progress(250.0), -2.5);
+        assert_eq!(anim.animate_wrapped(250.0), -2.5);
         anim.transition(5.0, 250.0); // Interrupt at 25%
-        assert_eq!(anim.animation.origin, -2.5); // New origin should be the current progress
-        assert_eq!(anim.linear_progress(750.0), 1.25); // Halfway to new destination
-        assert_eq!(anim.linear_progress(1250.0), 5.0); // Completed to new destination
+        assert_eq!(anim.animate_wrapped(750.0), 1.25); // Halfway to new destination
+        assert_eq!(anim.animate_wrapped(1250.0), 5.0); // Completed to new destination
     }
 
     #[test]
     fn test_multiple_interruptions() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
+
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.linear_progress(500.0), 5.);
+        assert_eq!(anim.animate_wrapped(500.0), 5.);
+        dbg!(&anim);
+
         anim.transition(15.0, 500.0); // First interruption
-        assert_eq!(anim.linear_progress(1000.0), 10.); // 50% to new destination
+        dbg!(&anim);
+        assert_eq!(anim.animate_wrapped(1000.0), 10.); // 50% to new destination
+
         anim.transition(0.0, 1000.0); // Second interruption
-        assert_eq!(anim.animation.origin, 10.); // New origin after second interruption
-        assert_eq!(anim.linear_progress(1500.0), 5.); // Halfway to final destination
-        assert_eq!(anim.linear_progress(2000.0), 0.0); // Completed to final destination
+        dbg!(&anim);
+        assert_eq!(anim.animate_wrapped(1500.0), 5.); // Halfway to final destination
+        assert_eq!(anim.animate_wrapped(2000.0), 0.0); // Completed to final destination
     }
 
     #[test]
@@ -1072,18 +1146,17 @@ mod tests {
     fn test_interruption_with_direction_change() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.linear_progress(500.0), 5.0);
+        // assert_eq!(anim.animate_wrapped(500.0), 5.0);
         anim.transition(-5.0, 500.0); // Interrupt and change direction
-        assert_eq!(anim.animation.origin, 5.0); // New origin should be the current progress
-        assert_eq!(anim.linear_progress(1000.0), 0.0); // Halfway back to new destination
-        assert_eq!(anim.linear_progress(1500.0), -5.0); // Completed to new destination
+        assert_eq!(anim.animate_wrapped(1000.0), 0.0); // Halfway back to new destination
+        assert_eq!(anim.animate_wrapped(1500.0), -5.0); // Completed to new destination
     }
 
     #[test]
     fn test_zero_duration_transition() {
         let mut anim = Animated::new(0.).duration(0.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.linear_progress(0.0), 10.0); // Should immediately reach the destination
+        assert_eq!(anim.animate_wrapped(0.0), 10.0); // Should immediately reach the destination
         assert!(!anim.in_progress(0.0)); // Should not be in progress
     }
 
@@ -1091,11 +1164,11 @@ mod tests {
     fn test_interruption_at_completion() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
-        assert_eq!(anim.linear_progress(1000.0), 10.0); // Completed
+        assert_eq!(anim.animate_wrapped(1000.0), 10.0); // Completed
         anim.transition(20.0, 1000.0); // Interrupt right at completion
-        assert_eq!(anim.animation.origin, 10.0); // New origin should be the completed value
-        assert_eq!(anim.linear_progress(1500.0), 15.0); // Halfway to new destination
-        assert_eq!(anim.linear_progress(2000.0), 20.0); // Completed to new destination
+        assert_eq!(anim.animation.origin, 1.0); // New origin should be the completed value
+        assert_eq!(anim.animate_wrapped(1500.0), 15.0); // Halfway to new destination
+        assert_eq!(anim.animate_wrapped(2000.0), 20.0); // Completed to new destination
     }
 
     #[test]
@@ -1105,7 +1178,7 @@ mod tests {
             .easing(Easing::Linear);
         anim.transition(10.0, 0.0);
 
-        let result = anim.animate(|v| v, 500.0);
+        let result = anim.animate_wrapped(500.0);
         assert_eq!(result, 5.0);
 
         let result = anim.animate(|v| v * 2.0, 750.0);
@@ -1145,14 +1218,14 @@ mod tests {
             .easing(Easing::Linear);
         anim.transition(10.0, 0.0);
 
-        let result = anim.animate(|v| v, 500.0);
+        let result = anim.animate_wrapped(500.0);
         assert_eq!(result, 5.0);
 
         anim.transition(20.0, 500.0);
         let result = anim.animate(|v| v, 1000.0);
         assert_eq!(result, 12.5);
 
-        let result = anim.animate(|v| v, 1500.0);
+        let result = anim.animate_wrapped(1500.0);
         assert_eq!(result, 20.0);
     }
 

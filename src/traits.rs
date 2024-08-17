@@ -8,31 +8,6 @@ impl AnimationTime for std::time::Instant {
         (self - time).as_millis() as f32
     }
 }
-/// Defines a float representation for arbitrary types
-///
-/// The actual float values are pretty arbitrary - as interpolation from
-/// one float to another will usually look the same.
-/// This simply correlates values with a "location"
-/// that can be interpolated towards.
-pub trait FloatRepresentable {
-    fn float_value(&self) -> f32;
-}
-
-impl FloatRepresentable for bool {
-    fn float_value(&self) -> f32 {
-        if *self {
-            1.
-        } else {
-            0.
-        }
-    }
-}
-
-impl FloatRepresentable for f32 {
-    fn float_value(&self) -> f32 {
-        *self
-    }
-}
 
 /// A type implementing `Interpolable` can be used with `Animated<T>.animate(...)`
 pub trait Interpolable {

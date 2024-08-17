@@ -11,7 +11,7 @@ use iced::{
     mouse, Background, Border, Color, Font, Point, Rectangle, Renderer, Subscription, Task,
 };
 use iced::{Element, Length, Theme};
-use lilt::{Animated, FloatRepresentable};
+use lilt::Animated;
 use lilt::{Easing, Interpolable};
 use std::default::Default;
 use std::f32::consts::PI;
@@ -23,21 +23,11 @@ pub fn main() -> iced::Result {
         .run()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 enum IndicatorState {
     Analyzing,
     Safe,
     Warning,
-}
-
-impl FloatRepresentable for IndicatorState {
-    fn float_value(&self) -> f32 {
-        match self {
-            IndicatorState::Analyzing => 0.,
-            IndicatorState::Safe => 1.,
-            IndicatorState::Warning => 2.,
-        }
-    }
 }
 
 struct Example {
