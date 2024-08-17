@@ -1,6 +1,4 @@
-use std::{fmt::Debug, ops::Range};
-
-use crate::traits::{AnimationTime, Interpolable};
+use crate::traits::{AnimationTime, FloatRepresentable, Interpolable};
 /// Wraps state to enable interpolated transitions
 ///
 /// # Example
@@ -151,7 +149,7 @@ where
             self.last_value = self.value;
             self.value = new_value;
             self.animation
-                .transition(new_value.float_value(), at, false)
+                .transition(new_value.float_value(), at, instantaneous)
         }
     }
     /// Returns whether the animation is complete, given the current time
@@ -222,8 +220,8 @@ where
 
 impl<T, Time> Animated<T, Time>
 where
-    T: Clone + Copy + PartialEq + PartialOrd,
-    T: Interpolable + Debug,
+    T: FloatRepresentable + Clone + Copy + PartialEq,
+    T: Interpolable,
     Time: AnimationTime,
 {
     pub fn animate_wrapped(&self, time: Time) -> T {

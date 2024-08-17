@@ -15,7 +15,8 @@ impl AnimationTime for std::time::Instant {
 /// one float to another will look the same, however in the case of
 /// asymmetric animations the 'direction' of the animation is determined
 /// using these float representations.
-/// In general, this defines 'keyframes' & associates values on a continuous axis.
+/// In general, this defines 'keyframes' & associates animated values on
+/// a continuous axis so that transitions & interruptions can be represented.
 pub trait FloatRepresentable {
     fn float_value(&self) -> f32;
 }
