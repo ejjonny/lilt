@@ -45,36 +45,27 @@ use crate::traits::{AnimationTime, Interpolable};
 #[derive(Clone, Debug, Default)]
 pub struct Animated<T, Time>
 where
-    T: Clone + Copy + PartialEq + PartialOrd,
+    T: FloatRepresentable + Clone + Copy + PartialEq,
     Time: AnimationTime,
 {
     animation: Animation<Time>,
     pub value: T,
     last_value: T,
-    interrupt: Option<Interrupt<T>>,
-}
-
-#[derive(Clone, Debug, Default)]
-struct Interrupt<T> {
-    range: Range<T>,
-    float_range: Range<f32>,
-    ratio: f32,
 }
 
 impl<T, Time> Animated<T, Time>
 where
-    T: Clone + Copy + PartialEq + PartialOrd,
+    T: FloatRepresentable + Clone + Copy + PartialEq,
     Time: AnimationTime,
 {
     /// Creates an animated value with specified animation settings
     pub fn new_with_settings(value: T, duration_ms: f32, easing: Easing) -> Self {
-        let mut animation = Animation::default(0.);
+        let mut animation = Animation::default(value.float_value());
         animation.settings.duration_ms = duration_ms;
         animation.settings.easing = easing;
         Animated {
             value,
             last_value: value,
-            interrupt: None,
             animation,
         }
     }
@@ -83,8 +74,7 @@ where
         Self {
             value,
             last_value: value,
-            interrupt: None,
-            animation: Animation::default(0.),
+            animation: Animation::default(value.float_value()),
         }
     }
     /// Specifies the duration of the animation in milliseconds
@@ -158,51 +148,10 @@ where
     }
     fn transition_internal(&mut self, new_value: T, at: Time, instantaneous: bool) {
         if self.value != new_value {
-            let new_value_float = if new_value > self.value {
-                self.animation.destination + 1.
-            } else {
-                self.animation.destination - 1.
-            };
-            let in_progress = self.in_progress(at);
-
-            // if in_progress {
-            //     self.interrupt = Interrupt {
-            //         range: self.last_value..self.value,
-            //         float_range: self.animation.origin..self.animation.destination,
-            //         ratio: self.animation.eased_unit_progress(at),
-            //     }
-            //     .into()
-            // } else {
-            //     self.interrupt = None
-            // }
-            match (in_progress, &mut self.interrupt) {
-                (true, None) => {
-                    self.interrupt = Interrupt {
-                        range: self.last_value..self.value,
-                        float_range: self.animation.origin..self.animation.destination,
-                        ratio: self.animation.eased_unit_progress(at),
-                    }
-                    .into()
-                }
-                (true, Some(current_interrupt)) => {
-                    if self.value > current_interrupt.range.end {
-                        dbg!("MUUUUU");
-                        current_interrupt.range.end = self.value;
-                        current_interrupt.ratio += (self.animation.eased_unit_progress(at) * 0.5)
-                    }
-                    if self.value < current_interrupt.range.start {
-                        current_interrupt.range.start = self.value;
-                        current_interrupt.ratio =
-                            1. - (self.animation.eased_unit_progress(at) * 0.5) + 1.;
-                    }
-                }
-                (false, _) => (),
-            }
-            self.animation
-                .transition(new_value_float, at, instantaneous);
-
             self.last_value = self.value;
             self.value = new_value;
+            self.animation
+                .transition(new_value.float_value(), at, false)
         }
     }
     /// Returns whether the animation is complete, given the current time
@@ -225,56 +174,16 @@ where
         // The only way to do so without storing interpolable values is to represent
         // the interrupt float (origin) as an interpolable value and interpolate between
         // that and the current destination.
-
-        // let interrupted_range = self.value.float_value() - self.last_value.float_value();
-        // let interrupted_range = self.a/nimation.progress_range();
-        // let unit_interrupt_value = if interrupted_range == 0. {
-        //     0.
-        // } else {
-        //     (self.animation.origin - self.last_value.float_value()) / interrupted_range
-        // };
-        // let interrupt_interpolable =
-        //     map(self.last_value).interpolated(map(self.value), interrupted_range);
-        // interrupt_interpolable
-        //     .interpolated(map(self.value), self.animation.eased_unit_progress(time))
-
-        // let range = self.value_float - self.last_value_float;
-        // let interrupt = if range == 0. {
-        //     0.
-        // } else {
-        //     (self.animation.origin - self.last_value_float) / range
-        // };
-        // dbg!(
-        //     range,
-        //     self.animation.origin,
-        //     self.animation.destination,
-        //     interrupt,
-        //     self.last_value_float,
-        //     self.value_float,
-        //     self.animation.eased_unit_progress(time)
-        // );
-        // let interrupt_interpolated = map(self.last_value).interpolated(map(self.value), interrupt);
-        // dbg!(
-        //     map(self.last_value),
-        //     map(self.value),
-        //     &interrupt_interpolated
-        // );
-        // interrupt_interpolated
-        //     .interpolated(map(self.value), self.animation.eased_unit_progress(time))
-
-        // dbg!(map(self.interrupted_orig));
-        // dbg!(map(self.interrupted_dest));
-        // map(self.interrupted_dest) - map(self.interrupted_orig);
-        match &self.interrupt {
-            Some(interrupt) => {
-                // dbg!(range, unit_interrupt_value);
-                map(interrupt.range.start)
-                    .interpolated(map(interrupt.range.end), interrupt.ratio)
-                    .interpolated(map(self.value), self.animation.eased_unit_progress(time))
-            }
-            None => map(self.last_value)
-                .interpolated(map(self.value), self.animation.eased_unit_progress(time)),
-        }
+        let interrupted_range = self.value.float_value() - self.last_value.float_value();
+        let unit_interrupt_value = if interrupted_range == 0. {
+            0.
+        } else {
+            (self.animation.origin - self.last_value.float_value()) / interrupted_range
+        };
+        let interrupt_interpolable =
+            map(self.last_value).interpolated(map(self.value), unit_interrupt_value);
+        interrupt_interpolable
+            .interpolated(map(self.value), self.animation.eased_unit_progress(time))
     }
     // Just for nicer testing
     #[allow(dead_code)]
@@ -289,14 +198,14 @@ where
 
 impl<T, Time> Animated<T, Time>
 where
-    T: Clone + Copy + PartialEq + PartialOrd,
+    T: FloatRepresentable + Clone + Copy + PartialEq,
     Time: AnimationTime,
 {
     /// Interpolates to `equal` when the wrapped value matches the provided `value`
     /// Otherwise interpolate towards `default`
     pub fn animate_if_eq<I>(&self, value: T, equal: I, default: I, time: Time) -> I
     where
-        I: Interpolable + Clone + Debug,
+        I: Interpolable + Clone,
     {
         self.animate(
             |v| {
@@ -329,7 +238,7 @@ where
     /// Interpolates any value that implements `Interpolable`, given the current time
     pub fn animate_bool<I>(&self, false_value: I, true_value: I, time: Time) -> I
     where
-        I: Interpolable + Clone + Debug,
+        I: Interpolable + Clone,
     {
         self.animate(
             move |b| {
