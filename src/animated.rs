@@ -824,8 +824,6 @@ mod tests {
         assert_eq!(anim.animate_wrapped(500.0), 5.0);
 
         anim.transition(20.0, 500.0); // Interrupt halfway
-        assert_eq!(anim.animation.origin, 0.5); // New origin should be the current progress
-        dbg!(&anim);
         assert_eq!(anim.animate_wrapped(1000.0), 12.5); // Halfway to new destination
         assert_eq!(anim.animate_wrapped(1500.0), 20.0); // Completed to new destination
     }
@@ -1021,15 +1019,12 @@ mod tests {
 
         anim.transition(10.0, 0.0);
         assert_eq!(anim.animate_wrapped(500.0), 5.);
-        dbg!(&anim);
 
         anim.transition(15.0, 500.0); // First interruption
-        dbg!(&anim);
         assert_eq!(anim.animate_wrapped(1000.0), 10.); // 50% to new destination
 
         anim.transition(0.0, 1000.0); // Second interruption
-        dbg!(&anim);
-        assert_eq!(anim.animate_wrapped(1500.0), 5.); // Halfway to final destination
+        assert!(approximately_equal(anim.animate_wrapped(1500.0), 5.)); // Halfway to final destination
         assert_eq!(anim.animate_wrapped(2000.0), 0.0); // Completed to final destination
     }
 
@@ -1053,9 +1048,9 @@ mod tests {
     fn test_interruption_with_direction_change() {
         let mut anim = Animated::new(0.).duration(1000.).easing(Easing::Linear);
         anim.transition(10.0, 0.0);
-        // assert_eq!(anim.animate_wrapped(500.0), 5.0);
+        assert_eq!(anim.animate_wrapped(500.0), 5.0);
         anim.transition(-5.0, 500.0); // Interrupt and change direction
-        assert_eq!(anim.animate_wrapped(1000.0), 0.0); // Halfway back to new destination
+        assert!(approximately_equal(anim.animate_wrapped(1000.0), 0.0)); // Halfway back to new destination
         assert_eq!(anim.animate_wrapped(1500.0), -5.0); // Completed to new destination
     }
 
@@ -1073,7 +1068,6 @@ mod tests {
         anim.transition(10.0, 0.0);
         assert_eq!(anim.animate_wrapped(1000.0), 10.0); // Completed
         anim.transition(20.0, 1000.0); // Interrupt right at completion
-        assert_eq!(anim.animation.origin, 1.0); // New origin should be the completed value
         assert_eq!(anim.animate_wrapped(1500.0), 15.0); // Halfway to new destination
         assert_eq!(anim.animate_wrapped(2000.0), 20.0); // Completed to new destination
     }

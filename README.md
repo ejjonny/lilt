@@ -20,7 +20,7 @@ Embed the state you want to animate in an `Animated` struct.
 
 ```rust
 struct MyViewState {
-    animated_toggle: Animated<bool, Instant>,
+    toggle: Animated<bool, Instant>,
 }
 ```
 
@@ -28,7 +28,7 @@ When you initialize your view state - define the initial state & configure the a
 
 ```rust
 let mut state = MyViewState {
-    animated_toggle: Animated::new(false)
+    toggle: Animated::new(false)
         .duration(300.)
         .easing(Easing::EaseOut)
         .delay(30.)
@@ -43,7 +43,7 @@ When your state needs an update, call the `transition` function on your animated
 ```rust
 let now = std::time::Instant::now();
 state
-    .animated_toggle
+    .toggle
     .transition(!state.animated_toggle.value, now);
 ```
 
@@ -53,25 +53,14 @@ While rendering a view based on your state - use the `animate` function on your 
 
 ```rust
 let now = std::time::Instant::now();
-// Use the animated float for something like width, height, offset
-let animated_width = self.animated_toggle.animate_bool(100., 500., now);
-// Or add an `Interpolable` implementation to an object of your choice, like a color
-let animated_color = self.animated_toggle.animate_bool(my_color_a, my_color_b, now);
-// Sometimes `animate` or `animate_if_eq` can be better fits, depending on the wrapped type
-let animated_width = self.animated_enum.animate(
-    |enum_value| {
-        match {
-            //...
-        }
-    },
-    now,
- );
-let animated_opacity = self.animated_enum.animate_if_eq(
-    IndicatorState::Analyzing,
-    1.,
-    0.,
-    time,
-)
+
+// The wrapped value can be used to interpolate any values that implement `Interpolable`
+let animated_width = self.toggle.animate_bool(100., 500., now);
+
+// If the wrapped value itself is `Interpolable`, it can easily be interpolated in place
+let animated_width = self.width.animate_wrapped(now);
+
+// There are plenty of `animate` methods for interpolating things based on the wrapped value.
 ```
 
 ### What's the point?
