@@ -8,12 +8,15 @@ impl AnimationTime for std::time::Instant {
         (self - time).as_millis() as f32
     }
 }
+
 /// Defines a float representation for arbitrary types
 ///
 /// The actual float values are pretty arbitrary - as interpolation from
-/// one float to another will usually look the same.
-/// This simply correlates values with a "location"
-/// that can be interpolated towards.
+/// one float to another will look the same, however in the case of
+/// asymmetric animations the 'direction' of the animation is determined
+/// using these float representations.
+/// In general, this defines 'keyframes' & associates animated values on
+/// a continuous axis so that transitions & interruptions can be represented.
 pub trait FloatRepresentable {
     fn float_value(&self) -> f32;
 }
