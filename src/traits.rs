@@ -5,7 +5,7 @@ pub trait AnimationTime: Copy + std::fmt::Debug + Send {
 
 impl AnimationTime for web_time::Instant {
     fn elapsed_since(self, time: Self) -> f32 {
-        (self - time).as_millis() as f32
+        (self - time).as_secs_f32() * 1000.0
     }
 }
 
