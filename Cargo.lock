@@ -140,7 +140,7 @@ checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 
 [[package]]
 name = "lilt"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "insta",
  "public-api",
